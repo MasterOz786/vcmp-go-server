@@ -1,0 +1,5 @@
+*.so
+*.dll
+*.dylib
+*.h
+!include/.gitkeep

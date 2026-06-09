@@ -1,0 +1,9 @@
+// Copy this next to your official VC:MP server.exe as server.cfg
+// Only the Go demo plugin is required — no Squirrel or Java.
+
+name VC:MP Go Demo
+port 8192
+maxplayers 100
+password
+rcon_password changeme
+plugins goserver04rel64
