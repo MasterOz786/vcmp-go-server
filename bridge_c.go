@@ -6,7 +6,7 @@ package main
 #include <stdlib.h>
 #include <string.h>
 
-static PluginFuncs *g_pf;
+PluginFuncs *g_pf;
 static void vcmp_set_funcs(PluginFuncs *pf) { g_pf = pf; }
 
 static void vcmp_log_msg(const char *msg) {
@@ -94,6 +94,39 @@ static void vcmp_set_vehicle_part_status(int32_t vehicleId, int32_t partId, int3
 }
 static void vcmp_set_vehicle_tyre_status(int32_t vehicleId, int32_t tyreId, int32_t status) {
 	if (g_pf && g_pf->SetVehicleTyreStatus) g_pf->SetVehicleTyreStatus(vehicleId, tyreId, status);
+}
+static int32_t vcmp_get_player_team(int32_t playerId) {
+	if (g_pf && g_pf->GetPlayerTeam) return g_pf->GetPlayerTeam(playerId);
+	return 0;
+}
+static void vcmp_set_player_team(int32_t playerId, int32_t teamId) {
+	if (g_pf && g_pf->SetPlayerTeam) g_pf->SetPlayerTeam(playerId, teamId);
+}
+static void vcmp_give_player_weapon(int32_t playerId, int32_t weaponId, int32_t ammo) {
+	if (g_pf && g_pf->GivePlayerWeapon) g_pf->GivePlayerWeapon(playerId, weaponId, ammo);
+}
+static void vcmp_remove_all_weapons(int32_t playerId) {
+	if (g_pf && g_pf->RemoveAllWeapons) g_pf->RemoveAllWeapons(playerId);
+}
+static void vcmp_set_player_score(int32_t playerId, int32_t score) {
+	if (g_pf && g_pf->SetPlayerScore) g_pf->SetPlayerScore(playerId, score);
+}
+static int32_t vcmp_get_player_score(int32_t playerId) {
+	if (g_pf && g_pf->GetPlayerScore) return g_pf->GetPlayerScore(playerId);
+	return 0;
+}
+static void vcmp_set_vehicle_position(int32_t vehicleId, float x, float y, float z) {
+	if (g_pf && g_pf->SetVehiclePosition) g_pf->SetVehiclePosition(vehicleId, x, y, z, 0);
+}
+static void vcmp_set_vehicle_health(int32_t vehicleId, float health) {
+	if (g_pf && g_pf->SetVehicleHealth) g_pf->SetVehicleHealth(vehicleId, health);
+}
+static void vcmp_delete_vehicle(int32_t vehicleId) {
+	if (g_pf && g_pf->DeleteVehicle) g_pf->DeleteVehicle(vehicleId);
+}
+static void vcmp_get_player_uid(int32_t playerId, char *buf, size_t buflen) {
+	if (buf && buflen > 0) buf[0] = '\0';
+	if (g_pf && g_pf->GetPlayerUID && buf && buflen > 0) g_pf->GetPlayerUID(playerId, buf, buflen);
 }
 */
 import "C"
@@ -248,4 +281,51 @@ func bridgeBreakVehicle(vehicleID int) {
 	C.vcmp_set_vehicle_part_status(C.int32_t(vehicleID), 0, 3)
 	C.vcmp_set_vehicle_tyre_status(C.int32_t(vehicleID), 3, 1)
 	C.vcmp_set_vehicle_part_status(C.int32_t(vehicleID), 4, 2)
+}
+
+func bridgeServerTimeMs() uint64 {
+	return uint64(C.vcmp_get_time())
+}
+
+func bridgePlayerTeam(playerID int) int {
+	return int(C.vcmp_get_player_team(C.int32_t(playerID)))
+}
+
+func bridgeSetPlayerTeam(playerID, team int) {
+	C.vcmp_set_player_team(C.int32_t(playerID), C.int32_t(team))
+}
+
+func bridgeGiveWeapon(playerID, weaponID, ammo int) {
+	C.vcmp_give_player_weapon(C.int32_t(playerID), C.int32_t(weaponID), C.int32_t(ammo))
+}
+
+func bridgeRemoveAllWeapons(playerID int) {
+	C.vcmp_remove_all_weapons(C.int32_t(playerID))
+}
+
+func bridgeSetPlayerScore(playerID, score int) {
+	C.vcmp_set_player_score(C.int32_t(playerID), C.int32_t(score))
+}
+
+func bridgeGetPlayerScore(playerID int) int {
+	return int(C.vcmp_get_player_score(C.int32_t(playerID)))
+}
+
+func bridgeSetVehiclePosition(vehicleID int, pos Vec3) {
+	C.vcmp_set_vehicle_position(C.int32_t(vehicleID), C.float(pos.X), C.float(pos.Y), C.float(pos.Z))
+}
+
+func bridgeSetVehicleHealth(vehicleID int, health float32) {
+	C.vcmp_set_vehicle_health(C.int32_t(vehicleID), C.float(health))
+}
+
+func bridgeDeleteVehicle(vehicleID int) {
+	C.vcmp_delete_vehicle(C.int32_t(vehicleID))
+}
+
+func bridgePlayerUID(playerID int) string {
+	buf := (*[128]C.char)(C.malloc(128))
+	defer C.free(unsafe.Pointer(buf))
+	C.vcmp_get_player_uid(C.int32_t(playerID), &buf[0], 128)
+	return C.GoString(&buf[0])
 }

@@ -1,0 +1,7 @@
+{
+  "db_path": "safari.db",
+  "map_file": "safari_maps/patrol_default.json",
+  "round_minutes": 15,
+  "auto_start_players": 2,
+  "mark_cooldown_sec": 30
+}

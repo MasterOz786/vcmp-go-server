@@ -14,8 +14,8 @@ type Config struct {
 
 func defaultConfig() Config {
 	return Config{
-		ServerName:   "VC:MP Go Demo Server",
-		GameModeText: "Go Demo (Kotlin-style)",
+		ServerName:   "Project Safari: Hydra Warfare",
+		GameModeText: "Project Safari: Hydra Warfare",
 	}
 }
 
