@@ -1,7 +1,12 @@
-// Copy this next to your official VC:MP server.exe as server.cfg
+// Copy this next to server64.exe (Windows) or the Linux server binary as server.cfg
 //
-// Plugin built from vcmp-go-server (private Safari gamemode).
-// SDK: github.com/masteroz/vcmp-go-plugin
+// Base server: Blank Server 64bit (August 2024)
+//   http://files.thijn.ovh/download/9cedd88d75c4d0d76369b772342b4ba9/Blank%20Server%20-%209th%20August,%202024.zip
+//
+// From that zip, use the "Blank Server 64bit" folder. Keep its bundled plugins/
+// (xmlconf04rel64, announce04rel64, …). Build this gamemode with:
+//   make build-windows
+// and copy plugins/goserver04rel64.dll into that plugins/ folder.
 //
 // Also copy beside the server binary:
 //   goserver.json
@@ -13,4 +18,4 @@ port 8192
 maxplayers 100
 password
 rcon_password changeme
-plugins goserver04rel64
+plugins xmlconf04rel64 announce04rel64 goserver04rel64

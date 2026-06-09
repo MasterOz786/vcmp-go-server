@@ -2,3 +2,6 @@
 *.dll
 *.dylib
 *.h
+plugins/*.so
+plugins/*.dll
+!plugins/.gitkeep

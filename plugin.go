@@ -40,6 +40,8 @@ func newPlugin(cfg Config) *Plugin {
 	engine := safari.NewEngine(safari.VCMPAPI{}, db, safariCfg, mapCfg, cfg.ServerName, gameMode)
 	engine.Start()
 
+	vcmp.API.Server.Log(fmt.Sprintf("[safari] gamemode initialized (map=%s db=%s)", safariCfg.MapFile, safariCfg.DBPath))
+
 	return &Plugin{engine: engine, store: store, db: db}
 }
 
