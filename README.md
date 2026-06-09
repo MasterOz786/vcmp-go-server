@@ -20,7 +20,7 @@ CGO, callbacks, and `plugin.h` live in **vcmp-go-plugin** — not duplicated her
 
 ```bash
 # Local development (sibling checkout)
-replace github.com/masteroz/vcmp-go-plugin => ../plugin
+replace github.com/masteroz/vcmp-go-plugin => ../vcmp-go-plugin
 ```
 
 After publishing the SDK, remove `replace` and pin a version tag in `go.mod`.

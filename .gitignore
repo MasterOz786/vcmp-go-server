@@ -5,3 +5,13 @@
 plugins/*.so
 plugins/*.dll
 !plugins/.gitkeep
+server64.exe
+server.cfg
+server_alive.txt
+server_log.txt
+server_output.log
+plugins/server_log.txt
+*.db
+*.db-shm
+*.db-wal
+*.bak
