@@ -2,9 +2,12 @@ module github.com/masteroz/vcmp-go-server
 
 go 1.25.0
 
-// Native VC:MP demo plugin — no JVM or Squirrel required.
+require (
+	github.com/masteroz/vcmp-go-plugin v0.1.0
+	modernc.org/sqlite v1.52.0
+)
 
-require modernc.org/sqlite v1.52.0
+replace github.com/masteroz/vcmp-go-plugin => ../vcmp-go-plugin
 
 require (
 	github.com/dustin/go-humanize v1.0.1 // indirect

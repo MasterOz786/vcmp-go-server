@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/masteroz/vcmp-go-plugin/vcmp"
 	"github.com/masteroz/vcmp-go-server/safari"
 )
 
@@ -9,42 +10,42 @@ func (p *Plugin) register() {
 		return
 	}
 
-	events.OnServerStart = func() FilterResult {
+	vcmp.Events.OnServerStart = func() vcmp.FilterResult {
 		p.engine.OnServerStart()
-		return FilterAllow
+		return vcmp.FilterAllow
 	}
 
-	events.OnServerStop = func() {
+	vcmp.Events.OnServerStop = func() {
 		p.shutdown()
 	}
 
-	events.OnPlayerConnect = func(playerID int) {
+	vcmp.Events.OnPlayerConnect = func(playerID int) {
 		p.engine.Enqueue(safari.NewConnectEvent(playerID))
 	}
 
-	events.OnPlayerDisconnect = func(playerID int, _ DisconnectReason) {
+	vcmp.Events.OnPlayerDisconnect = func(playerID int, _ vcmp.DisconnectReason) {
 		p.engine.Enqueue(safari.NewDisconnectEvent(playerID))
 	}
 
-	events.OnPlayerRequestSpawn = func(playerID int) FilterResult {
+	vcmp.Events.OnPlayerRequestSpawn = func(playerID int) vcmp.FilterResult {
 		if p.engine.HandleRequestSpawn(playerID) {
-			return FilterAllow
+			return vcmp.FilterAllow
 		}
-		return FilterDeny
+		return vcmp.FilterDeny
 	}
 
-	events.OnPlayerSpawn = func(playerID int) {
+	vcmp.Events.OnPlayerSpawn = func(playerID int) {
 		p.engine.Enqueue(safari.NewSpawnEvent(playerID))
 	}
 
-	events.OnPlayerCommand = func(playerID int, command string) FilterResult {
+	vcmp.Events.OnPlayerCommand = func(playerID int, command string) vcmp.FilterResult {
 		if p.engine.HandleCommandSync(playerID, command) {
-			return FilterDeny
+			return vcmp.FilterDeny
 		}
-		return FilterAllow
+		return vcmp.FilterAllow
 	}
 
-	events.OnVehicleExplode = func(vehicleID int) {
+	vcmp.Events.OnVehicleExplode = func(vehicleID int) {
 		p.engine.Enqueue(safari.NewVehicleExplodeEvent(vehicleID))
 	}
 }

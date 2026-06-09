@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 
+	"github.com/masteroz/vcmp-go-plugin/vcmp"
 	"github.com/masteroz/vcmp-go-server/safari"
 )
 
@@ -12,17 +13,19 @@ type Plugin struct {
 	db     *safari.DBWorker
 }
 
+var plug *Plugin
+
 func newPlugin(cfg Config) *Plugin {
 	safariCfg := safari.LoadConfig()
 	mapCfg, err := safari.LoadMap(safariCfg.MapFile)
 	if err != nil {
-		bridgeLog(fmt.Sprintf("[safari] map load failed (%s): %v — using defaults", safariCfg.MapFile, err))
+		vcmp.API.Server.Log(fmt.Sprintf("[safari] map load failed (%s): %v — using defaults", safariCfg.MapFile, err))
 		mapCfg = defaultSafariMap()
 	}
 
 	store, err := safari.OpenStore(safariCfg.DBPath)
 	if err != nil {
-		bridgeLog(fmt.Sprintf("[safari] database open failed: %v", err))
+		vcmp.API.Server.Log(fmt.Sprintf("[safari] database open failed: %v", err))
 		return &Plugin{}
 	}
 
@@ -34,7 +37,7 @@ func newPlugin(cfg Config) *Plugin {
 		gameMode = "Project Safari: Hydra Warfare"
 	}
 
-	engine := safari.NewEngine(safariBridge{}, db, safariCfg, mapCfg, cfg.ServerName, gameMode)
+	engine := safari.NewEngine(safari.VCMPAPI{}, db, safariCfg, mapCfg, cfg.ServerName, gameMode)
 	engine.Start()
 
 	return &Plugin{engine: engine, store: store, db: db}

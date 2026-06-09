@@ -1,23 +1,19 @@
 PLUGIN_NAME ?= goserver04rel64
-HEADER := include/plugin.h
 
-.PHONY: all deps build build-linux build-windows clean
+.PHONY: all build build-linux build-windows tidy clean
 
 all: build
 
-deps:
-	cd scripts && go run fetch_plugin.go
+tidy:
+	go mod tidy
 
-$(HEADER):
-	$(MAKE) deps
-
-build: $(HEADER)
+build: tidy
 	CGO_ENABLED=1 go build -buildmode=c-shared -o $(PLUGIN_NAME).so .
 
-build-linux: $(HEADER)
+build-linux: tidy
 	GOOS=linux GOARCH=amd64 CGO_ENABLED=1 go build -buildmode=c-shared -o $(PLUGIN_NAME).so .
 
-build-windows: $(HEADER)
+build-windows: tidy
 	GOOS=windows GOARCH=amd64 CGO_ENABLED=1 CC=x86_64-w64-mingw32-gcc go build -buildmode=c-shared -o $(PLUGIN_NAME).dll .
 
 clean:

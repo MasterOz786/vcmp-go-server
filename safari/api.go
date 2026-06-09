@@ -1,6 +1,6 @@
 package safari
 
-// API is implemented by the main plugin bridge (VC:MP natives).
+// API is the gamemode-facing surface. Production uses VCMPAPI (vcmp-go-plugin).
 type API interface {
 	Log(msg string)
 	Broadcast(colour uint32, msg string)

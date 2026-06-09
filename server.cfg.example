@@ -1,6 +1,12 @@
 // Copy this next to your official VC:MP server.exe as server.cfg
-// Only the Go Safari plugin is required — no Squirrel or Java.
-// Also copy: goserver.json, safari.json, safari_maps/patrol_default.json
+//
+// Plugin built from vcmp-go-server (private Safari gamemode).
+// SDK: github.com/masteroz/vcmp-go-plugin
+//
+// Also copy beside the server binary:
+//   goserver.json
+//   safari.json
+//   safari_maps/patrol_default.json
 
 name Project Safari: Hydra Warfare
 port 8192
