@@ -16,7 +16,14 @@ type API interface {
 	SetPlayerTeam(playerID, team int)
 	SetPlayerScore(playerID, score int)
 	GetPlayerScore(playerID int) int
+	PlayerPosition(playerID int) Vec3
+	PlayerVehicleID(playerID int) int
 	SetPlayerPosition(playerID int, pos Vec3) error
+	ForceSpawn(playerID int) error
+	PutPlayerInVehicle(playerID, vehicleID, slot int)
+	RemoveFromVehicle(playerID int) error
+	SetCamera(playerID int, pos, lookAt Vec3) error
+	RestoreCamera(playerID int) error
 
 	SetServerName(name string)
 	SetGameModeText(text string)
@@ -27,6 +34,7 @@ type API interface {
 	CreateVehicle(model, world int, pos Vec3, angle float32, c1, c2 int) int
 	DeleteVehicle(vehicleID int)
 	VehiclePos(vehicleID int) Vec3
+	VehicleRotationEuler(vehicleID int) Vec3
 	VehicleHealth(vehicleID int) float32
 	SetVehiclePosition(vehicleID int, pos Vec3)
 	SetVehicleHealth(vehicleID int, health float32)
@@ -37,4 +45,8 @@ type API interface {
 	RemoveWeapon(playerID, weaponID int) error
 
 	ServerTimeMs() uint64
+	LastErrorString() string
+
+	PlayerWorld(playerID int) int
+	SetVehicleWorld(vehicleID, world int) error
 }

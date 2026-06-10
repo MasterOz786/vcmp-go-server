@@ -20,7 +20,7 @@ func (t *Teams) Assign(api API, playerID, pack int) int {
 	if s := t.sessions[playerID]; s != nil {
 		return s.Team
 	}
-	if pack < 1 || pack > 2 {
+	if pack < 1 || pack > MaxPack {
 		pack = 1
 	}
 	team := TeamEscort
@@ -58,7 +58,7 @@ func (t *Teams) Team(playerID int) int {
 }
 
 func (t *Teams) SetPack(playerID, pack int) bool {
-	if pack < 1 || pack > 2 {
+	if pack < 1 || pack > MaxPack {
 		return false
 	}
 	s := t.sessions[playerID]
@@ -197,17 +197,21 @@ func (t *Teams) SyncScores(api API, score Scoring) {
 func (t *Teams) SetupClasses(api API, mapCfg MapConfig) {
 	// Pack weapons are granted by the gamemode; class kits must stay empty.
 	weapons := [6]int{0, 0, 0, 0, 0, 0}
+	escortSkins := []int{0, 1, 2, 9}
+	defendSkins := []int{9, 28, 47, 57}
 	for i, sp := range mapCfg.EscortSpawns {
 		if i >= 4 {
 			break
 		}
-		api.AddPlayerClass(TeamEscort, 0xFF6EC6FF, 0, sp, 0, weapons)
+		skin := escortSkins[i%len(escortSkins)]
+		api.AddPlayerClass(TeamEscort, 0xFF6EC6FF, skin, sp, 0, weapons)
 	}
 	for i, sp := range mapCfg.DefendSpawns {
 		if i >= 4 {
 			break
 		}
-		api.AddPlayerClass(TeamDefend, 0xFFFF6E6E, 9, sp, 0, weapons)
+		skin := defendSkins[i%len(defendSkins)]
+		api.AddPlayerClass(TeamDefend, 0xFFFF6E6E, skin, sp, 0, weapons)
 	}
 	if len(mapCfg.EscortSpawns) > 0 {
 		api.SetSpawnPos(mapCfg.EscortSpawns[0])

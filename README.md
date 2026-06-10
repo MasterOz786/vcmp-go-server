@@ -1,63 +1,81 @@
-# vcmp-go-server (private)
+# vcmp-go-server
 
-Project Safari gamemode library for VC:MP 0.4. Gameplay logic lives here; the native plugin binary is built from **vcmp-go-plugin**.
+Project Safari **gamemode library** and VC:MP **server deploy folder** (configs, maps, `server64.exe`).
 
-## Layout
+This repository does **not** compile a native plugin. There is no `main` package and no `go build -buildmode=c-shared` here.
+
+## What lives here
 
 | Path | Role |
-|---|---|
-| `safari/` | Gamemode logic (teams, Hydra, rounds, commands) |
-| `safari/vcmpapi.go` | Thin adapter: `safari.API` → `vcmp.API` |
-| `safari.json`, `safari_maps/` | Runtime config (copy to VC:MP server root on deploy) |
-| `server.cfg.example`, `goserver.json` | Deploy templates |
+|------|------|
+| `safari/` | Gamemode logic (teams, Hydra, rounds, commands) — Go **library** |
+| `safari/vcmpapi.go` | Adapter: `safari.API` → `vcmp.API` |
+| `safari.json`, `safari_maps/` | Runtime config (keep next to `server64.exe`) |
+| `server.cfg`, `goserver.json` | VC:MP server config (local deploy) |
+| `plugins/` | **Deploy only** — copy built `goserver04rel64.dll` here (not built in this repo) |
 
-Plugin entry and event wiring: [`../plugin/examples/safari/`](../plugin/examples/safari/).
+## What does NOT live here
 
-CGO, callbacks, and `plugin.h` live in **vcmp-go-plugin** — not duplicated here.
+- CGO / `plugin.h` / `//export` callbacks → [**vcmp-go-plugin**](https://github.com/masteroz/vcmp-go-plugin)
+- Plugin `main`, `VcmpPluginInit`, event wiring → `vcmp-go-plugin/examples/safari/`
 
-## Dependencies
+## Build & test (this repo)
 
-```bash
-# server/go.mod
-replace github.com/masteroz/vcmp-go-plugin => ../plugin
-```
-
-## Build (library tests)
-
-```bash
-make test    # go test ./...
+```powershell
+cd D:\vcmp-go-server
+make test
 make tidy
 ```
 
-## Build Safari plugin (.so / .dll)
+## Build the plugin (after changing `safari/` or plugin wiring)
 
-From the plugin repo:
+From this repo (recommended):
 
-```bash
-cd ../plugin
-make deps
-make build-safari          # → plugins/goserver04rel64.so
-make build-linux-safari    # Linux rel64
-make build-windows-safari  # Windows DLL for server64.exe
+```powershell
+cd D:\vcmp-go-server
+.\build.ps1              # test -> stop server -> build -> deploy
+.\build.ps1 -StartServer # same + launch server64.exe
 ```
 
-## Deploy
+Or from the plugin repo:
 
-Use the [Blank Server 64bit (August 2024)](http://files.thijn.ovh/download/9cedd88d75c4d0d76369b772342b4ba9/Blank%20Server%20-%209th%20August,%202024.zip) as the base. Copy into the blank server folder:
+```powershell
+cd D:\vcmp-go-plugin
+.\build-safari.ps1
+.\build-safari.ps1 -StartServer
+```
 
-- `plugin/plugins/goserver04rel64.dll` (or `.so` on Linux)
-- Keep bundled plugins (`xmlconf04rel64`, `announce04rel64`, …)
-- `server.cfg` — see `server.cfg.example`
-- `goserver.json`, `safari.json`, `safari_maps/patrol_default.json`
+Steps run automatically: `go test` in vcmp-go-server, stop `server64`, build `goserver04rel64.dll`, copy to `plugins/`.
+
+## Run the server
+
+```powershell
+cd D:\vcmp-go-server
+.\server64.exe
+```
+
+`server.cfg` must load the Safari plugin (not the blank `goplugin04rel64`):
 
 ```
 plugins xmlconf04rel64 announce04rel64 goserver04rel64
 ```
 
-On load:
+On load you should see:
 
 ```
 [plugin] loaded Safari v1.0.0 (API 2.0)
 [safari] gamemode initialized (map=... db=...)
 [safari] server ready — Project Safari: Hydra Warfare
+```
+
+## Local development
+
+```go
+// vcmp-go-server/go.mod
+replace github.com/masteroz/vcmp-go-plugin => ../vcmp-go-plugin
+```
+
+```go
+// vcmp-go-plugin/examples/safari/go.mod
+replace github.com/masteroz/vcmp-go-server => ../../../vcmp-go-server
 ```

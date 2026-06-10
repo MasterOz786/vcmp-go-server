@@ -31,19 +31,24 @@ func NewHydra() *Hydra {
 	return &Hydra{State: HydraIdle, Index: 0, VehicleID: -1}
 }
 
-func (h *Hydra) Spawn(api API, mapCfg MapConfig) int {
+func (h *Hydra) Spawn(api API, mapCfg MapConfig, models []int) int {
 	pos := mapCfg.HydraStart
 	if len(mapCfg.Waypoints) > 0 && mapCfg.HydraStart.X == 0 && mapCfg.HydraStart.Y == 0 {
 		pos = mapCfg.Waypoints[0]
 	}
 	h.Waypoints = mapCfg.Waypoints
 	h.Index = 0
-	h.VehicleID = api.CreateVehicle(HydraModel, mapCfg.World, pos, mapCfg.HydraAngle, 1, 1)
+	var modelUsed int
+	h.VehicleID, modelUsed = createHydraVehicle(api, models, mapCfg.World, pos, mapCfg.HydraAngle)
 	if h.VehicleID >= 0 {
 		api.SetVehicleHealth(h.VehicleID, HydraMaxHP)
 		h.State = HydraPatrol
+		if modelUsed != HydraModel {
+			api.Log(fmt.Sprintf("[safari] patrol aircraft spawned with model %d (Hydra %d unavailable)", modelUsed, HydraModel))
+		}
 	} else {
 		h.State = HydraIdle
+		api.Log(formatHydraSpawnFailure(api, models))
 	}
 	return h.VehicleID
 }

@@ -102,7 +102,16 @@ func (e *Engine) HandleCommand(playerID int, raw string) CommandResult {
 	case "/stats":
 		e.cmdStats(playerID)
 		return CommandResult{Handled: true, Deny: true}
+	case "/testhydra":
+		return e.cmdTestHydra(playerID, args)
+	case "/hydraview":
+		e.cycleHydraCamera(playerID)
+		return CommandResult{Handled: true, Deny: true}
 	default:
+		if strings.HasPrefix(name, "/") && len(name) > 1 {
+			e.api.Send(playerID, ColourYellow, "Unknown command. Try /help")
+			return CommandResult{Handled: true, Deny: true}
+		}
 		return CommandResult{}
 	}
 }
@@ -110,8 +119,11 @@ func (e *Engine) HandleCommand(playerID int, raw string) CommandResult {
 func (e *Engine) sendHelp(playerID int) {
 	lines := []string{
 		"Project Safari: Hydra Warfare",
-		"/pack 1|2 — choose loadout",
+		"/pack 1|2|3 — choose loadout (keys 1-3)",
 		"/mark [name] — Escort: designate target",
+		"/testhydra — spawn test Hydra and warp in",
+		"/testhydra stop — remove your test Hydra",
+		"/hydraview or V — cycle Hydra camera while flying",
 		"/status — round info",
 		"/stats — your persistent stats",
 		"/startsafari — admin: start round",
@@ -126,12 +138,12 @@ func (e *Engine) sendHelp(playerID int) {
 
 func (e *Engine) cmdPack(playerID int, args []string) CommandResult {
 	if len(args) != 1 {
-		e.api.Send(playerID, ColourYellow, "Usage: /pack 1|2")
+		e.api.Send(playerID, ColourYellow, fmt.Sprintf("Usage: /pack 1-%d", MaxPack))
 		return CommandResult{Handled: true, Deny: true}
 	}
 	pack, err := strconv.Atoi(args[0])
-	if err != nil || pack < 1 || pack > 2 {
-		e.api.Send(playerID, ColourYellow, "Pack must be 1 or 2.")
+	if err != nil || pack < 1 || pack > MaxPack {
+		e.api.Send(playerID, ColourYellow, fmt.Sprintf("Pack must be 1 to %d.", MaxPack))
 		return CommandResult{Handled: true, Deny: true}
 	}
 	if e.round.State == RoundActive && e.teams.HasSpawnedThisRound(playerID) {

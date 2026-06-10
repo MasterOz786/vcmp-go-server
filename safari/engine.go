@@ -151,6 +151,7 @@ func (e *Engine) handleEvent(ev Event) {
 // OnServerFrame runs pending loadout retries every server frame (faster than the 1s tick).
 func (e *Engine) OnServerFrame() {
 	e.processPendingLoadouts()
+	e.updateHydraCameras()
 }
 
 func (e *Engine) onTick() {
@@ -235,7 +236,7 @@ func (e *Engine) startRound() {
 	if e.round.State == RoundActive {
 		return
 	}
-	if e.round.Start(e.api, e.mapCfg, e.cfg.RoundMinutes, e.teams, e.marking) {
+	if e.round.Start(e.api, e.mapCfg, e.cfg.RoundMinutes, e.teams, e.marking, e.hydraVehicleModels()) {
 		e.announce(MsgRoundStart, e.round.RoundMinutesStr())
 	}
 }
@@ -333,7 +334,7 @@ func (e *Engine) preferredPack(playerID int) int {
 		e.api.Log(fmt.Sprintf("[safari] preferred pack lookup failed for %s: %v", uid, err))
 		return 1
 	}
-	if pack < 1 || pack > 2 {
+	if pack < 1 || pack > MaxPack {
 		return 1
 	}
 	return pack
@@ -419,6 +420,7 @@ func (e *Engine) onConnect(playerID int) {
 }
 
 func (e *Engine) onDisconnect(playerID int) {
+	e.stopTestHydra(playerID)
 	delete(e.loadoutRetries, playerID)
 	e.teams.Remove(playerID)
 	e.marking.ClearPlayer(playerID)
@@ -491,6 +493,10 @@ func (e *Engine) onPlayerKeyBind(playerID, bindID int, released bool) {
 		_ = e.HandleCommand(playerID, "/pack 1")
 	case 2:
 		_ = e.HandleCommand(playerID, "/pack 2")
+	case 3:
+		_ = e.HandleCommand(playerID, "/pack 3")
+	case 4:
+		e.cycleHydraCamera(playerID)
 	}
 }
 
@@ -515,18 +521,32 @@ func (e *Engine) onPlayerUpdate(playerID, updateType int) {
 }
 
 func (e *Engine) onPlayerEnterVehicle(playerID, vehicleID, slot int) {
-	_, _, _ = playerID, vehicleID, slot
+	if !e.isHydraVehicle(vehicleID) {
+		return
+	}
+	s := e.teams.session(playerID)
+	if s != nil {
+		s.HydraCameraMode = HydraCamDefault
+	}
+	e.api.Send(playerID, ColourCyan, "Hydra controls: V or /hydraview cycles camera views.")
+	_, _ = slot, playerID
 }
 
 func (e *Engine) onPlayerExitVehicle(playerID, vehicleID int) {
-	_, _ = playerID, vehicleID
+	if e.isHydraVehicle(vehicleID) {
+		e.resetHydraCamera(playerID)
+	}
 }
 
 func (e *Engine) HandleEnterVehicleRequest(playerID, vehicleID, slot int) bool {
-	_ = playerID
+	s := e.teams.session(playerID)
+	if s != nil && s.TestHydraVehicleID == vehicleID {
+		return true
+	}
 	if e.round.State == RoundActive && vehicleID == e.round.Hydra.VehicleID {
 		return e.teams.Team(playerID) == TeamEscort
 	}
+	_ = slot
 	return true
 }
 

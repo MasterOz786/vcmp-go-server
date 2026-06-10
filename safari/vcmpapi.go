@@ -45,6 +45,34 @@ func (VCMPAPI) SetPlayerPosition(playerID int, pos Vec3) error {
 	return vcmp.API.Player.SetPosition(playerID, fromSafariVec3(pos))
 }
 
+func (VCMPAPI) PlayerPosition(playerID int) Vec3 {
+	return toSafariVec3(vcmp.API.Player.Position(playerID))
+}
+
+func (VCMPAPI) PlayerVehicleID(playerID int) int {
+	return vcmp.API.Player.VehicleID(playerID)
+}
+
+func (VCMPAPI) ForceSpawn(playerID int) error {
+	return vcmp.API.Player.ForceSpawn(playerID)
+}
+
+func (VCMPAPI) PutPlayerInVehicle(playerID, vehicleID, slot int) {
+	vcmp.API.Player.PutInVehicle(playerID, vehicleID, slot, true, true)
+}
+
+func (VCMPAPI) RemoveFromVehicle(playerID int) error {
+	return vcmp.API.Player.RemoveFromVehicle(playerID)
+}
+
+func (VCMPAPI) SetCamera(playerID int, pos, lookAt Vec3) error {
+	return vcmp.API.Player.SetCamera(playerID, fromSafariVec3(pos), fromSafariVec3(lookAt))
+}
+
+func (VCMPAPI) RestoreCamera(playerID int) error {
+	return vcmp.API.Player.RestoreCamera(playerID)
+}
+
 func (VCMPAPI) SetServerName(name string) { vcmp.API.Server.SetName(name) }
 
 func (VCMPAPI) SetGameModeText(text string) { vcmp.API.Server.SetGameModeText(text) }
@@ -69,6 +97,14 @@ func (VCMPAPI) DeleteVehicle(vehicleID int) { vcmp.API.Vehicle.Delete(vehicleID)
 
 func (VCMPAPI) VehiclePos(vehicleID int) Vec3 {
 	return toSafariVec3(vcmp.API.Vehicle.Position(vehicleID))
+}
+
+func (VCMPAPI) VehicleRotationEuler(vehicleID int) Vec3 {
+	rot, err := vcmp.API.Vehicle.RotationEuler(vehicleID)
+	if err != nil {
+		return Vec3{}
+	}
+	return toSafariVec3(rot)
 }
 
 func (VCMPAPI) VehicleHealth(vehicleID int) float32 { return vcmp.API.Vehicle.Health(vehicleID) }
@@ -96,3 +132,18 @@ func (VCMPAPI) RemoveWeapon(playerID, weaponID int) error {
 }
 
 func (VCMPAPI) ServerTimeMs() uint64 { return vcmp.API.Server.Time() }
+
+func (VCMPAPI) LastErrorString() string {
+	if err := vcmp.API.Server.LastError(); err != nil {
+		return err.Error()
+	}
+	return ""
+}
+
+func (VCMPAPI) PlayerWorld(playerID int) int {
+	return vcmp.API.Player.World(playerID)
+}
+
+func (VCMPAPI) SetVehicleWorld(vehicleID, world int) error {
+	return vcmp.API.Vehicle.SetWorld(vehicleID, world)
+}
