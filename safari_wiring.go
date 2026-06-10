@@ -1,6 +1,8 @@
 package main
 
 import (
+	"strings"
+
 	"github.com/masteroz/vcmp-go-plugin/vcmp"
 	"github.com/masteroz/vcmp-go-server/safari"
 )
@@ -41,6 +43,15 @@ func (p *Plugin) register() {
 	vcmp.Events.OnPlayerCommand = func(playerID int, command string) vcmp.FilterResult {
 		if p.engine.HandleCommandSync(playerID, command) {
 			return vcmp.FilterDeny
+		}
+		return vcmp.FilterAllow
+	}
+
+	vcmp.Events.OnPlayerMessage = func(playerID int, message string) vcmp.FilterResult {
+		if strings.HasPrefix(strings.TrimSpace(message), "/") {
+			if p.engine.HandleCommandSync(playerID, message) {
+				return vcmp.FilterDeny
+			}
 		}
 		return vcmp.FilterAllow
 	}

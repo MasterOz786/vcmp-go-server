@@ -12,9 +12,21 @@ type CommandResult struct {
 	Deny    bool
 }
 
-func (e *Engine) HandleCommand(playerID int, raw string) CommandResult {
+func normalizeCommand(raw string) (string, bool) {
 	cmd := strings.TrimSpace(raw)
+	if cmd == "" {
+		return "", false
+	}
+	// VC:MP OnPlayerCommand passes "help" / "pack 1" without the leading slash.
 	if !strings.HasPrefix(cmd, "/") {
+		cmd = "/" + cmd
+	}
+	return cmd, true
+}
+
+func (e *Engine) HandleCommand(playerID int, raw string) CommandResult {
+	cmd, ok := normalizeCommand(raw)
+	if !ok {
 		return CommandResult{}
 	}
 	parts := strings.Fields(cmd)
@@ -87,6 +99,9 @@ func (e *Engine) cmdPack(playerID int, args []string) CommandResult {
 	if err != nil || pack < 1 || pack > 2 {
 		e.api.Send(playerID, ColourYellow, "Pack must be 1 or 2.")
 		return CommandResult{Handled: true, Deny: true}
+	}
+	if e.teams.Team(playerID) == 0 {
+		e.teams.Assign(e.api, playerID)
 	}
 	if !e.teams.SetPack(playerID, pack) {
 		e.api.Send(playerID, ColourRed, "You are not assigned to a team yet.")

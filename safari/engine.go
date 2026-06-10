@@ -1,9 +1,6 @@
 package safari
 
-import (
-	"strings"
-	"time"
-)
+import "time"
 
 type Engine struct {
 	api        API
@@ -251,10 +248,6 @@ func (e *Engine) HandleRequestSpawn(playerID int) bool {
 }
 
 func (e *Engine) HandleCommandSync(playerID int, cmd string) bool {
-	cmd = strings.TrimSpace(cmd)
-	if !strings.HasPrefix(cmd, "/") {
-		return false
-	}
 	res := e.HandleCommand(playerID, cmd)
 	return res.Deny
 }
