@@ -2,8 +2,6 @@
 *.dll
 *.dylib
 *.h
-plugins/*.so
-plugins/*.dll
 !plugins/.gitkeep
 server64.exe
 server.cfg
