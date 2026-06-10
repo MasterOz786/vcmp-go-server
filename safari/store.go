@@ -139,14 +139,14 @@ func (s *Store) GetPreferredPack(uid string) (int, error) {
 	if err != nil {
 		return 1, err
 	}
-	if pack < 1 || pack > 2 {
+	if pack < 1 || pack > MaxPack {
 		return 1, nil
 	}
 	return pack, nil
 }
 
 func (s *Store) SetPreferredPack(uid string, pack int) error {
-	if pack < 1 || pack > 2 {
+	if pack < 1 || pack > MaxPack {
 		pack = 1
 	}
 	_, err := s.db.Exec(

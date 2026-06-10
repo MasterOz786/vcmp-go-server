@@ -31,19 +31,20 @@ func NewHydra() *Hydra {
 	return &Hydra{State: HydraIdle, Index: 0, VehicleID: -1}
 }
 
-func (h *Hydra) Spawn(api API, mapCfg MapConfig) int {
+func (h *Hydra) Spawn(api API, mapCfg MapConfig, model int) int {
 	pos := mapCfg.HydraStart
 	if len(mapCfg.Waypoints) > 0 && mapCfg.HydraStart.X == 0 && mapCfg.HydraStart.Y == 0 {
 		pos = mapCfg.Waypoints[0]
 	}
 	h.Waypoints = mapCfg.Waypoints
 	h.Index = 0
-	h.VehicleID = api.CreateVehicle(HydraModel, mapCfg.World, pos, mapCfg.HydraAngle, 1, 1)
+	h.VehicleID = createHydraVehicle(api, model, mapCfg.World, pos, mapCfg.HydraAngle)
 	if h.VehicleID >= 0 {
 		api.SetVehicleHealth(h.VehicleID, HydraMaxHP)
 		h.State = HydraPatrol
 	} else {
 		h.State = HydraIdle
+		api.Log(formatHydraSpawnFailure(api, model))
 	}
 	return h.VehicleID
 }

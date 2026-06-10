@@ -58,8 +58,11 @@ func (e *Engine) OnServerStart() {
 	e.announce(MsgServerReady)
 }
 
-// OnServerFrame drives the 1 Hz game tick from VC:MP frame time (no extra goroutine).
+// OnServerFrame drives per-frame work and the 1 Hz game tick from VC:MP frame time.
 func (e *Engine) OnServerFrame(elapsed float32) {
+	e.retryPendingLoadouts()
+	e.updateHydraCameras()
+
 	e.secondsAccum += elapsed
 	if e.secondsAccum < 1.0 {
 		return
@@ -71,7 +74,6 @@ func (e *Engine) OnServerFrame(elapsed float32) {
 func (e *Engine) onTick() {
 	e.tickCount++
 	e.syncPrefetchedPacks()
-	e.retryPendingLoadouts()
 
 	if e.round.MaybeReset() {
 		e.announce(MsgRoundReset)
@@ -150,7 +152,7 @@ func (e *Engine) startRound() {
 	if e.round.State == RoundActive {
 		return
 	}
-	if e.round.Start(e.api, e.mapCfg, e.cfg.RoundMinutes, e.teams, e.marking) {
+	if e.round.Start(e.api, e.mapCfg, e.cfg.RoundMinutes, e.teams, e.marking, e.hydraModel()) {
 		e.announce(MsgRoundStart, e.round.RoundMinutesStr())
 	}
 }
@@ -249,6 +251,9 @@ func (e *Engine) initialPack(uid string) int {
 		return 1
 	}
 	if pack, ok := e.db.CachedPreferredPack(uid); ok {
+		if pack < 1 || pack > MaxPack {
+			return 1
+		}
 		return pack
 	}
 	e.db.PrefetchPreferredPack(uid)
@@ -352,6 +357,7 @@ func (e *Engine) maybePromptRegistration(playerID int, uid string) {
 }
 
 func (e *Engine) OnDisconnect(playerID int) {
+	e.stopTestHydra(playerID)
 	delete(e.loadoutRetries, playerID)
 	e.teams.TrackDisconnect(playerID)
 	e.teams.Remove(playerID)
@@ -407,6 +413,10 @@ func (e *Engine) OnPlayerKeyBind(playerID, bindID int, released bool) {
 		_ = e.HandleCommand(playerID, "/pack 1")
 	case 2:
 		_ = e.HandleCommand(playerID, "/pack 2")
+	case 3:
+		_ = e.HandleCommand(playerID, "/pack 3")
+	case 4:
+		e.cycleHydraCamera(playerID)
 	}
 }
 
@@ -425,11 +435,33 @@ func (e *Engine) OnPickupPicked(pickupID, playerID int) {
 	}
 }
 
+func (e *Engine) OnPlayerEnterVehicle(playerID, vehicleID, slot int) {
+	if !e.isHydraVehicle(vehicleID) {
+		return
+	}
+	s := e.teams.session(playerID)
+	if s != nil {
+		s.HydraCameraMode = HydraCamDefault
+	}
+	e.api.Send(playerID, ColourCyan, "Hydra controls: V or /hydraview cycles camera views.")
+	_, _ = slot, playerID
+}
+
+func (e *Engine) OnPlayerExitVehicle(playerID, vehicleID int) {
+	if e.isHydraVehicle(vehicleID) {
+		e.resetHydraCamera(playerID)
+	}
+}
+
 func (e *Engine) HandleEnterVehicleRequest(playerID, vehicleID, slot int) bool {
-	_ = slot
+	s := e.teams.session(playerID)
+	if s != nil && s.TestHydraVehicleID == vehicleID {
+		return true
+	}
 	if e.round.State == RoundActive && vehicleID == e.round.Hydra.VehicleID {
 		return e.teams.Team(playerID) == TeamEscort
 	}
+	_ = slot
 	return true
 }
 

@@ -2,11 +2,18 @@ package safari
 
 const (
 	MaxPlayers = 100
+	MaxPack    = 3
 
 	TeamEscort   = 1
 	TeamDefend   = 2
-	HydraModel   = 520
+	HydraModel   = 6460
 	HydraMaxHP   = 1000.0
+
+	HydraCamDefault   = 0
+	HydraCamChase     = 1
+	HydraCamSide      = 2
+	HydraCamTactical  = 3
+	HydraCamCount     = 4
 
 	ColourWhite  uint32 = 0xFFFFFFFF
 	ColourGreen  uint32 = 0xFF00FF00

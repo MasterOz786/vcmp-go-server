@@ -6,11 +6,18 @@ type PlayerSession struct {
 	Pack                int
 	SpawnIndex          int
 	HasSpawnedThisRound bool
+	HydraCameraMode     int
+	TestHydraVehicleID  int
 }
 
 func newPlayerSession(team, pack int) *PlayerSession {
 	if pack < 1 {
 		pack = 1
 	}
-	return &PlayerSession{Team: team, Pack: pack}
+	return &PlayerSession{
+		Team:                team,
+		Pack:                pack,
+		HydraCameraMode:     HydraCamDefault,
+		TestHydraVehicleID:  -1,
+	}
 }
