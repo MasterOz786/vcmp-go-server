@@ -9,4 +9,6 @@ const (
 	PacketShowRegister       = 60
 	PacketHideRegister       = 61
 	PacketRequestRegisterUI  = 94 // client ScriptLoad → server (CTF uses REQUEST_ACC_PREF on load)
+	PacketHydraCam           = 95 // server → client hydra camera mode (see hydra_camera.go)
+	PacketHydraCamHello      = 96 // client ScriptLoad → server (confirms store/script/main.nut loaded)
 )

@@ -8,6 +8,7 @@ type PlayerSession struct {
 	HasSpawnedThisRound bool
 	HydraCameraMode     int
 	TestHydraVehicleID  int
+	ClientScriptReady   bool // true after client sends PacketHydraCamHello
 }
 
 func newPlayerSession(team, pack int) *PlayerSession {

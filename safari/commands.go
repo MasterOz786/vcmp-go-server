@@ -126,7 +126,7 @@ func (e *Engine) sendHelp(playerID int) {
 		"/mark [name] — Escort: designate target",
 		"/testhydra — spawn test Hydra and warp in",
 		"/testhydra stop — remove your test Hydra",
-		"/hydraview or V — cycle Hydra camera while flying",
+		"/hydraview or H — cycle Hydra camera (client-side, no lag)",
 		"/status — round info",
 		"/stats — your persistent stats",
 		"/register — open registration window",

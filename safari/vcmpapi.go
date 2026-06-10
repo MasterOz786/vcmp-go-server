@@ -123,6 +123,10 @@ func (VCMPAPI) GiveWeapon(playerID, weaponID, ammo int) {
 	vcmp.API.Player.GiveWeapon(playerID, weaponID, ammo)
 }
 
+func (VCMPAPI) SetWeapon(playerID, weaponID, ammo int) error {
+	return vcmp.API.Player.SetWeapon(playerID, weaponID, ammo)
+}
+
 func (VCMPAPI) WeaponAtSlot(playerID, slot int) int {
 	return vcmp.API.Player.WeaponAtSlot(playerID, slot)
 }

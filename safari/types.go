@@ -9,11 +9,12 @@ const (
 	HydraModel   = 6460
 	HydraMaxHP   = 1000.0
 
-	HydraCamDefault   = 0
-	HydraCamChase     = 1
-	HydraCamSide      = 2
-	HydraCamTactical  = 3
-	HydraCamCount     = 4
+	HydraCamDefault  = 0
+	HydraCamChase    = 1
+	HydraCamSide     = 2
+	HydraCamTactical = 3
+	HydraCamCount    = 4
+	HydraCamOff      = -1
 
 	ColourWhite  uint32 = 0xFFFFFFFF
 	ColourGreen  uint32 = 0xFF00FF00

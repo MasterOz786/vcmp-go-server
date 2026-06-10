@@ -41,6 +41,7 @@ type API interface {
 
 	RemoveAllWeapons(playerID int)
 	GiveWeapon(playerID, weaponID, ammo int)
+	SetWeapon(playerID, weaponID, ammo int) error
 	WeaponAtSlot(playerID, slot int) int
 	RemoveWeapon(playerID, weaponID int) error
 

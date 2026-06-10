@@ -1,19 +1,19 @@
 package safari
 
-// GTA VC weapon IDs used for Safari loadouts.
+// VC:MP / GTA Vice City weapon IDs (NOT GTA SA). See wiki.vc-mp.org/wiki/Weapons
 const (
-	WeaponColt45          = 22
-	WeaponPython          = 23
-	WeaponShotgun         = 24
-	WeaponStubbyShotgun   = 25
-	WeaponTec9            = 26
-	WeaponSilencedPistol  = 28
-	WeaponM4              = 31
-	WeaponSniper          = 33
-	WeaponRPG             = 35
-	WeaponTearGas         = 17
-	WeaponMolotov         = 18
-	WeaponMinigun         = 38
+	WeaponTearGas        = 14
+	WeaponMolotov        = 15
+	WeaponColt45         = 17
+	WeaponPython         = 18
+	WeaponShotgun        = 19
+	WeaponStubbyShotgun  = 21
+	WeaponTec9           = 22
+	WeaponM4             = 26
+	WeaponRuger          = 27 // VC has no silenced pistol; marksman secondary
+	WeaponSniper         = 28
+	WeaponRPG            = 30
+	WeaponMinigun        = 33
 )
 
 type WeaponGrant struct {
@@ -35,8 +35,8 @@ func EscortPacks() map[int]PackDef {
 		}},
 		2: {Name: "Escort Support", Weapons: []WeaponGrant{
 			{WeaponM4, 200},
+			{WeaponShotgun, 60},
 			{WeaponTearGas, 4},
-			{WeaponStubbyShotgun, 60},
 		}},
 		3: {Name: "Escort Demolition", Weapons: []WeaponGrant{
 			{WeaponRPG, 4},
@@ -54,12 +54,12 @@ func DefendPacks() map[int]PackDef {
 		}},
 		2: {Name: "Defender Saboteur", Weapons: []WeaponGrant{
 			{WeaponRPG, 4},
+			{WeaponShotgun, 50},
 			{WeaponTearGas, 4},
-			{WeaponTec9, 120},
 		}},
 		3: {Name: "Defender Marksman", Weapons: []WeaponGrant{
 			{WeaponSniper, 40},
-			{WeaponSilencedPistol, 80},
+			{WeaponRuger, 80},
 			{WeaponStubbyShotgun, 50},
 		}},
 	}

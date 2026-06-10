@@ -1,6 +1,9 @@
 package safari
 
-import "fmt"
+import (
+	"fmt"
+	"os"
+)
 
 // Engine runs all gameplay on the VC:MP callback thread (Flag Raids style).
 // Only SQLite I/O uses a background worker with in-memory caches.
@@ -54,15 +57,17 @@ func (e *Engine) OnServerStart() {
 	e.api.SetServerName(e.serverName)
 	e.api.SetGameModeText(e.gameMode)
 	e.configureServer()
+	if _, err := os.Stat("store/script/main.nut"); err != nil {
+		e.api.Log("[safari] WARNING: store/script/main.nut not found — Hydra camera will not work until you add it next to server64.exe")
+	} else {
+		e.api.Log("[safari] store/script/main.nut found — clients download it on connect (F8 shows load message)")
+	}
 	e.api.Log("[safari] server ready — Project Safari: Hydra Warfare (direct callbacks)")
 	e.announce(MsgServerReady)
 }
 
-// OnServerFrame drives per-frame work and the 1 Hz game tick from VC:MP frame time.
+// OnServerFrame drives the 1 Hz game tick from VC:MP frame time.
 func (e *Engine) OnServerFrame(elapsed float32) {
-	e.retryPendingLoadouts()
-	e.updateHydraCameras()
-
 	e.secondsAccum += elapsed
 	if e.secondsAccum < 1.0 {
 		return
@@ -73,6 +78,7 @@ func (e *Engine) OnServerFrame(elapsed float32) {
 
 func (e *Engine) onTick() {
 	e.tickCount++
+	e.retryPendingLoadouts()
 	e.syncPrefetchedPacks()
 
 	if e.round.MaybeReset() {
@@ -288,6 +294,10 @@ func (e *Engine) retryPendingLoadouts() {
 		if !e.api.IsSpawned(playerID) {
 			continue
 		}
+		// Never strip/re-grant weapons while seated — causes stutter in vehicles (Hydra).
+		if e.api.PlayerVehicleID(playerID) >= 0 {
+			continue
+		}
 		team := e.teams.Team(playerID)
 		if team == 0 {
 			delete(e.loadoutRetries, playerID)
@@ -415,8 +425,6 @@ func (e *Engine) OnPlayerKeyBind(playerID, bindID int, released bool) {
 		_ = e.HandleCommand(playerID, "/pack 2")
 	case 3:
 		_ = e.HandleCommand(playerID, "/pack 3")
-	case 4:
-		e.cycleHydraCamera(playerID)
 	}
 }
 
@@ -443,8 +451,8 @@ func (e *Engine) OnPlayerEnterVehicle(playerID, vehicleID, slot int) {
 	if s != nil {
 		s.HydraCameraMode = HydraCamDefault
 	}
-	e.api.Send(playerID, ColourCyan, "Hydra controls: V or /hydraview cycles camera views.")
-	_, _ = slot, playerID
+	e.syncHydraCamera(playerID, vehicleID)
+	e.api.Send(playerID, ColourCyan, "Hydra ready — press H or /hydraview for camera (client-side).")
 }
 
 func (e *Engine) OnPlayerExitVehicle(playerID, vehicleID int) {

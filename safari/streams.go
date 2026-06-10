@@ -22,6 +22,8 @@ func (e *Engine) HandleClientScriptData(playerID int, data []byte) {
 		return
 	}
 	switch pkt {
+	case PacketHydraCamHello:
+		e.markClientScriptReady(playerID)
 	case PacketRequestRegisterUI:
 		uid := e.api.PlayerUID(playerID)
 		if uid != "" {
@@ -101,6 +103,30 @@ func (e *Engine) completeRegistration(playerID int, password string) {
 	e.SendHideRegister(playerID)
 	e.api.Send(playerID, ColourGreen, "Account registered successfully. Welcome to Project Safari!")
 	e.api.Log(fmt.Sprintf("[safari-stream] player %d (%s) registered", playerID, name))
+}
+
+func (e *Engine) markClientScriptReady(playerID int) {
+	if !e.api.IsConnected(playerID) {
+		return
+	}
+	s := e.teams.session(playerID)
+	if s == nil {
+		e.ensurePlayerSession(playerID)
+		s = e.teams.session(playerID)
+	}
+	if s != nil {
+		s.ClientScriptReady = true
+	}
+	e.api.Log(fmt.Sprintf("[safari] hydra camera client loaded for player %d (%s)", playerID, e.api.PlayerName(playerID)))
+}
+
+func (e *Engine) warnIfNoClientScript(playerID int) {
+	s := e.teams.session(playerID)
+	if s != nil && s.ClientScriptReady {
+		return
+	}
+	e.api.Send(playerID, ColourYellow,
+		"Hydra camera needs the client script (store/script/main.nut). Reconnect after store sync; press F8 and look for [safari] hydra camera client loaded.")
 }
 
 func hashPassword(password string) string {
