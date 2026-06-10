@@ -23,6 +23,8 @@ func (VCMPAPI) Send(playerID int, colour uint32, msg string) {
 
 func (VCMPAPI) IsConnected(playerID int) bool { return vcmp.API.Player.IsConnected(playerID) }
 
+func (VCMPAPI) IsSpawned(playerID int) bool { return vcmp.API.Player.IsSpawned(playerID) }
+
 func (VCMPAPI) IsAdmin(playerID int) bool { return vcmp.API.Player.IsAdmin(playerID) }
 
 func (VCMPAPI) PlayerName(playerID int) string { return vcmp.API.Player.Name(playerID) }

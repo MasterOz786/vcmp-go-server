@@ -1,6 +1,9 @@
 package safari
 
-import "time"
+import (
+	"fmt"
+	"time"
+)
 
 type Engine struct {
 	api        API
@@ -16,6 +19,7 @@ type Engine struct {
 
 	autostartEnabled bool
 	tickCount        int
+	loadoutRetries   map[int]int
 
 	events chan Event
 	stop   chan struct{}
@@ -113,11 +117,45 @@ func (e *Engine) handleEvent(ev Event) {
 		e.onVehicleExplode(ev.VehicleID)
 	case EvRequestSpawn:
 		ev.SpawnResult <- e.HandleRequestSpawn(ev.PlayerID)
+	case EvClientScriptData:
+		e.onClientScriptData(ev.PlayerID, ev.ScriptData)
+	case EvVehicleUpdate:
+		e.onVehicleUpdate(ev.VehicleID, ev.VehicleUpdateType)
+	case EvVehicleRespawn:
+		e.onVehicleRespawn(ev.VehicleID)
+	case EvPickupPicked:
+		e.onPickupPicked(ev.PickupID, ev.PlayerID)
+	case EvCheckpointEntered:
+		e.onCheckpointEntered(ev.CheckpointID, ev.PlayerID)
+	case EvCheckpointExited:
+		e.onCheckpointExited(ev.CheckpointID, ev.PlayerID)
+	case EvPlayerKeyBind:
+		e.onPlayerKeyBind(ev.PlayerID, ev.KeyBindID, ev.KeyBindReleased)
+	case EvObjectShot:
+		e.onObjectShot(ev.ObjectID, ev.PlayerID, ev.WeaponID)
+	case EvObjectTouched:
+		e.onObjectTouched(ev.ObjectID, ev.PlayerID)
+	case EvPickupRespawn:
+		e.onPickupRespawn(ev.PickupID)
+	case EvEntityPoolChange:
+		e.onEntityPoolChange(ev.EntityPool, ev.ObjectID, ev.EntityDeleted)
+	case EvPlayerUpdate:
+		e.onPlayerUpdate(ev.PlayerID, ev.VehicleUpdateType)
+	case EvPlayerEnterVehicle:
+		e.onPlayerEnterVehicle(ev.PlayerID, ev.VehicleID, ev.VehicleSlot)
+	case EvPlayerExitVehicle:
+		e.onPlayerExitVehicle(ev.PlayerID, ev.VehicleID)
 	}
+}
+
+// OnServerFrame runs pending loadout retries every server frame (faster than the 1s tick).
+func (e *Engine) OnServerFrame() {
+	e.processPendingLoadouts()
 }
 
 func (e *Engine) onTick() {
 	e.tickCount++
+	e.processPendingLoadouts()
 
 	if e.round.MaybeReset() {
 		e.announce(MsgRoundReset)
@@ -285,12 +323,91 @@ func (e *Engine) persistRound(winnerTeam int) {
 	})
 }
 
+func (e *Engine) preferredPack(playerID int) int {
+	uid := e.api.PlayerUID(playerID)
+	if uid == "" {
+		return 1
+	}
+	pack, err := e.db.GetPreferredPack(uid)
+	if err != nil {
+		e.api.Log(fmt.Sprintf("[safari] preferred pack lookup failed for %s: %v", uid, err))
+		return 1
+	}
+	if pack < 1 || pack > 2 {
+		return 1
+	}
+	return pack
+}
+
+func (e *Engine) ensurePlayerSession(playerID int) int {
+	pack := e.preferredPack(playerID)
+	if e.teams.Team(playerID) == 0 {
+		return e.teams.Assign(e.api, playerID, pack)
+	}
+	_ = e.teams.SetPack(playerID, pack)
+	return e.teams.Team(playerID)
+}
+
+func (e *Engine) applyPlayerLoadout(playerID int) {
+	team := e.teams.Team(playerID)
+	if team == 0 {
+		return
+	}
+	pack := e.teams.Pack(playerID)
+	ApplyLoadout(e.api, playerID, team, pack)
+	EnforceAllowed(e.api, playerID, team, pack)
+}
+
+// SchedulePlayerLoadout applies the saved pack immediately and retries until
+// the full kit is present (covers /kill respawns and class weapon races).
+func (e *Engine) SchedulePlayerLoadout(playerID int) {
+	if e.loadoutRetries == nil {
+		e.loadoutRetries = make(map[int]int)
+	}
+	e.ensurePlayerSession(playerID)
+	if e.api.IsSpawned(playerID) {
+		e.applyPlayerLoadout(playerID)
+	}
+	const retries = 5
+	if e.loadoutRetries[playerID] < retries {
+		e.loadoutRetries[playerID] = retries
+	}
+}
+
+func (e *Engine) processPendingLoadouts() {
+	for playerID, retries := range e.loadoutRetries {
+		if !e.api.IsConnected(playerID) {
+			delete(e.loadoutRetries, playerID)
+			continue
+		}
+		if !e.api.IsSpawned(playerID) {
+			continue
+		}
+		team := e.teams.Team(playerID)
+		if team == 0 {
+			continue
+		}
+		pack := e.teams.Pack(playerID)
+		if LoadoutComplete(e.api, playerID, team, pack) {
+			delete(e.loadoutRetries, playerID)
+			continue
+		}
+		e.applyPlayerLoadout(playerID)
+		if retries <= 1 {
+			delete(e.loadoutRetries, playerID)
+		} else {
+			e.loadoutRetries[playerID] = retries - 1
+		}
+	}
+}
+
 func (e *Engine) onConnect(playerID int) {
 	uid := e.api.PlayerUID(playerID)
 	name := e.api.PlayerName(playerID)
 	if uid != "" {
 		e.db.Enqueue(upsertPlayerJob{uid: uid, name: name})
 	}
+	e.ensurePlayerSession(playerID)
 	e.teams.Welcome(e.api, playerID)
 	if e.round.State == RoundIdle {
 		lobby := e.cfg.LobbyPosition(e.mapCfg)
@@ -298,22 +415,19 @@ func (e *Engine) onConnect(playerID int) {
 			_ = e.api.SetPlayerPosition(playerID, lobby)
 		}
 	}
+	e.SchedulePlayerLoadout(playerID)
 }
 
 func (e *Engine) onDisconnect(playerID int) {
+	delete(e.loadoutRetries, playerID)
 	e.teams.Remove(playerID)
 	e.marking.ClearPlayer(playerID)
 }
 
 func (e *Engine) onSpawn(playerID int) {
-	team := e.teams.Team(playerID)
-	if team == 0 {
-		team = e.teams.Assign(e.api, playerID)
-	}
-	pack := e.teams.Pack(playerID)
-	ApplyLoadout(e.api, playerID, team, pack)
-	EnforceAllowed(e.api, playerID, team, pack)
+	e.SchedulePlayerLoadout(playerID)
 	e.teams.MarkSpawned(playerID)
+	team := e.teams.Team(playerID)
 	score := e.round.Score.EscortScore
 	if team == TeamDefend {
 		score = e.round.Score.DefendScore
@@ -321,8 +435,104 @@ func (e *Engine) onSpawn(playerID int) {
 	e.api.SetPlayerScore(playerID, score)
 }
 
+func (e *Engine) onClientScriptData(playerID int, data []byte) {
+	if len(data) == 0 {
+		return
+	}
+	// Reserved for Safari client packet routing (loadout UI, marks, HUD sync).
+	_ = playerID
+}
+
+func (e *Engine) onVehicleUpdate(vehicleID, updateType int) {
+	if e.round.State != RoundActive || vehicleID != e.round.Hydra.VehicleID {
+		return
+	}
+	_ = updateType
+}
+
+func (e *Engine) onVehicleRespawn(vehicleID int) {
+	if e.round.State != RoundActive || vehicleID != e.round.Hydra.VehicleID {
+		return
+	}
+	e.api.Log("[safari] hydra vehicle respawned")
+}
+
+func (e *Engine) HandlePickupPickAttempt(pickupID, playerID int) bool {
+	_ = pickupID
+	if e.round.State == RoundActive {
+		e.SchedulePlayerLoadout(playerID)
+	}
+	return true
+}
+
+func (e *Engine) onPickupPicked(pickupID, playerID int) {
+	_ = pickupID
+	if e.round.State == RoundActive {
+		e.SchedulePlayerLoadout(playerID)
+	}
+}
+
+func (e *Engine) onCheckpointEntered(checkpointID, playerID int) {
+	_ = checkpointID
+	_ = playerID
+}
+
+func (e *Engine) onCheckpointExited(checkpointID, playerID int) {
+	_ = checkpointID
+	_ = playerID
+}
+
+func (e *Engine) onPlayerKeyBind(playerID, bindID int, released bool) {
+	if released {
+		return
+	}
+	switch bindID {
+	case 1:
+		_ = e.HandleCommand(playerID, "/pack 1")
+	case 2:
+		_ = e.HandleCommand(playerID, "/pack 2")
+	}
+}
+
+func (e *Engine) onObjectShot(objectID, playerID, weaponID int) {
+	_, _, _ = objectID, playerID, weaponID
+}
+
+func (e *Engine) onObjectTouched(objectID, playerID int) {
+	_, _ = objectID, playerID
+}
+
+func (e *Engine) onPickupRespawn(pickupID int) {
+	_ = pickupID
+}
+
+func (e *Engine) onEntityPoolChange(pool, entityID int, deleted bool) {
+	_, _, _ = pool, entityID, deleted
+}
+
+func (e *Engine) onPlayerUpdate(playerID, updateType int) {
+	_, _ = playerID, updateType
+}
+
+func (e *Engine) onPlayerEnterVehicle(playerID, vehicleID, slot int) {
+	_, _, _ = playerID, vehicleID, slot
+}
+
+func (e *Engine) onPlayerExitVehicle(playerID, vehicleID int) {
+	_, _ = playerID, vehicleID
+}
+
+func (e *Engine) HandleEnterVehicleRequest(playerID, vehicleID, slot int) bool {
+	_ = playerID
+	if e.round.State == RoundActive && vehicleID == e.round.Hydra.VehicleID {
+		return e.teams.Team(playerID) == TeamEscort
+	}
+	return true
+}
+
 func (e *Engine) onDeath(playerID, killerID int) {
 	e.teams.AdvanceSpawn(playerID)
+	e.SchedulePlayerLoadout(playerID)
 	victim := e.api.PlayerName(playerID)
 	var msg string
 	if killerID < 0 || !e.api.IsConnected(killerID) {

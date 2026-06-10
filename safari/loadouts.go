@@ -62,6 +62,35 @@ func AllowedWeaponIDs() map[int]bool {
 	return ids
 }
 
+func LoadoutComplete(api API, playerID, team, pack int) bool {
+	if pack < 1 || pack > 2 {
+		pack = 1
+	}
+	var packs map[int]PackDef
+	if team == TeamEscort {
+		packs = EscortPacks()
+	} else {
+		packs = DefendPacks()
+	}
+	def, ok := packs[pack]
+	if !ok {
+		def = packs[1]
+	}
+	for _, w := range def.Weapons {
+		found := false
+		for slot := 0; slot <= 12; slot++ {
+			if api.WeaponAtSlot(playerID, slot) == w.ID {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return false
+		}
+	}
+	return true
+}
+
 func ApplyLoadout(api API, playerID, team, pack int) {
 	if pack < 1 || pack > 2 {
 		pack = 1

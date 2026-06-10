@@ -7,6 +7,7 @@ type API interface {
 	Send(playerID int, colour uint32, msg string)
 
 	IsConnected(playerID int) bool
+	IsSpawned(playerID int) bool
 	IsAdmin(playerID int) bool
 	PlayerName(playerID int) string
 	PlayerIDFromName(name string) int

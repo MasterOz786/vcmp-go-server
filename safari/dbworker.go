@@ -51,6 +51,31 @@ func (j getStatsJob) Run(store *Store) error {
 	return nil
 }
 
+type savePackJob struct {
+	uid  string
+	pack int
+}
+
+func (j savePackJob) Run(store *Store) error {
+	return store.SetPreferredPack(j.uid, j.pack)
+}
+
+type getPreferredPackJob struct {
+	uid   string
+	reply chan<- int
+	err   chan<- error
+}
+
+func (j getPreferredPackJob) Run(store *Store) error {
+	pack, err := store.GetPreferredPack(j.uid)
+	if err != nil {
+		j.err <- err
+		return err
+	}
+	j.reply <- pack
+	return nil
+}
+
 type DBWorker struct {
 	store  *Store
 	jobs   chan DBJob
@@ -106,6 +131,22 @@ func (w *DBWorker) GetStats(uid string) (PlayerStats, error) {
 	case err := <-errCh:
 		return PlayerStats{UID: uid}, err
 	}
+}
+
+func (w *DBWorker) GetPreferredPack(uid string) (int, error) {
+	reply := make(chan int, 1)
+	errCh := make(chan error, 1)
+	w.Enqueue(getPreferredPackJob{uid: uid, reply: reply, err: errCh})
+	select {
+	case pack := <-reply:
+		return pack, nil
+	case err := <-errCh:
+		return 1, err
+	}
+}
+
+func (w *DBWorker) SavePreferredPack(uid string, pack int) {
+	w.Enqueue(savePackJob{uid: uid, pack: pack})
 }
 
 func (w *DBWorker) Stop() {

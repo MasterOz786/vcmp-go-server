@@ -55,6 +55,7 @@ func (r *Round) Bootstrap(api API, mapCfg MapConfig, teams *Teams, marking *Mark
 	teams.ResetRoundState()
 	marking.ResetAll()
 	teams.TeleportToSpawns(api, mapCfg)
+	teams.ApplyLoadouts(api)
 	teams.SyncScores(api, r.Score)
 }
 

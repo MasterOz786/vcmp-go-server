@@ -20,7 +20,8 @@ CREATE TABLE IF NOT EXISTS player_stats (
   defend_pts INTEGER DEFAULT 0,
   marks INTEGER DEFAULT 0,
   rounds_played INTEGER DEFAULT 0,
-  rounds_won INTEGER DEFAULT 0
+  rounds_won INTEGER DEFAULT 0,
+  preferred_pack INTEGER NOT NULL DEFAULT 1
 );
 CREATE TABLE IF NOT EXISTS match_history (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -51,6 +52,7 @@ func OpenStore(path string) (*Store, error) {
 		_ = db.Close()
 		return nil, err
 	}
+	_, _ = db.Exec(`ALTER TABLE player_stats ADD COLUMN preferred_pack INTEGER NOT NULL DEFAULT 1`)
 	return &Store{db: db}, nil
 }
 
@@ -89,6 +91,35 @@ func (s *Store) GetStats(uid string) (PlayerStats, error) {
 		return st, nil
 	}
 	return st, err
+}
+
+func (s *Store) GetPreferredPack(uid string) (int, error) {
+	var pack int
+	err := s.db.QueryRow(
+		`SELECT preferred_pack FROM player_stats WHERE uid = ?`, uid,
+	).Scan(&pack)
+	if err == sql.ErrNoRows {
+		return 1, nil
+	}
+	if err != nil {
+		return 1, err
+	}
+	if pack < 1 || pack > 2 {
+		return 1, nil
+	}
+	return pack, nil
+}
+
+func (s *Store) SetPreferredPack(uid string, pack int) error {
+	if pack < 1 || pack > 2 {
+		pack = 1
+	}
+	_, err := s.db.Exec(
+		`INSERT INTO player_stats (uid, preferred_pack) VALUES (?, ?)
+		 ON CONFLICT(uid) DO UPDATE SET preferred_pack = excluded.preferred_pack`,
+		uid, pack,
+	)
+	return err
 }
 
 func (s *Store) AddMark(uid string) error {

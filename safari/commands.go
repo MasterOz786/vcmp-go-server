@@ -138,21 +138,23 @@ func (e *Engine) cmdPack(playerID int, args []string) CommandResult {
 		e.api.Send(playerID, ColourYellow, "Cannot change pack after spawning this round.")
 		return CommandResult{Handled: true, Deny: true}
 	}
-	if e.teams.Team(playerID) == 0 {
-		e.teams.Assign(e.api, playerID)
-	}
+	e.ensurePlayerSession(playerID)
 	if !e.teams.SetPack(playerID, pack) {
 		e.api.Send(playerID, ColourRed, "You are not assigned to a team yet.")
 		return CommandResult{Handled: true, Deny: true}
 	}
+	if uid := e.api.PlayerUID(playerID); uid != "" {
+		e.db.SavePreferredPack(uid, pack)
+	}
 	team := e.teams.Team(playerID)
+	e.SchedulePlayerLoadout(playerID)
 	var name string
 	if team == TeamEscort {
 		name = EscortPacks()[pack].Name
 	} else {
 		name = DefendPacks()[pack].Name
 	}
-	e.api.Send(playerID, ColourGreen, fmt.Sprintf("Loadout set: %s (applied on next spawn)", name))
+	e.api.Send(playerID, ColourGreen, fmt.Sprintf("Loadout equipped: %s", name))
 	return CommandResult{Handled: true, Deny: true}
 }
 

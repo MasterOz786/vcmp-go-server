@@ -16,15 +16,18 @@ func (t *Teams) session(playerID int) *PlayerSession {
 	return t.sessions[playerID]
 }
 
-func (t *Teams) Assign(api API, playerID int) int {
+func (t *Teams) Assign(api API, playerID, pack int) int {
 	if s := t.sessions[playerID]; s != nil {
 		return s.Team
+	}
+	if pack < 1 || pack > 2 {
+		pack = 1
 	}
 	team := TeamEscort
 	if t.countEscort > t.countDefend {
 		team = TeamDefend
 	}
-	t.sessions[playerID] = newPlayerSession(team, 1)
+	t.sessions[playerID] = newPlayerSession(team, pack)
 	api.SetPlayerTeam(playerID, team)
 	if team == TeamEscort {
 		t.countEscort++
@@ -130,7 +133,10 @@ func (t *Teams) RoleName(team int) string {
 }
 
 func (t *Teams) Welcome(api API, playerID int) {
-	team := t.Assign(api, playerID)
+	team := t.Team(playerID)
+	if team == 0 {
+		return
+	}
 	colour := ColourGreen
 	if team == TeamDefend {
 		colour = ColourRed
@@ -163,6 +169,18 @@ func (t *Teams) TeleportToSpawns(api API, mapCfg MapConfig) {
 	}
 }
 
+func (t *Teams) ApplyLoadouts(api API) {
+	for playerID, s := range t.sessions {
+		if !api.IsConnected(playerID) || s.Team == 0 {
+			continue
+		}
+		if api.IsSpawned(playerID) {
+			ApplyLoadout(api, playerID, s.Team, s.Pack)
+			EnforceAllowed(api, playerID, s.Team, s.Pack)
+		}
+	}
+}
+
 func (t *Teams) SyncScores(api API, score Scoring) {
 	for playerID, s := range t.sessions {
 		if !api.IsConnected(playerID) {
@@ -177,7 +195,8 @@ func (t *Teams) SyncScores(api API, score Scoring) {
 }
 
 func (t *Teams) SetupClasses(api API, mapCfg MapConfig) {
-	weapons := [6]int{WeaponShotgun, 50, 0, 0, 0, 0}
+	// Pack weapons are granted by the gamemode; class kits must stay empty.
+	weapons := [6]int{0, 0, 0, 0, 0, 0}
 	for i, sp := range mapCfg.EscortSpawns {
 		if i >= 4 {
 			break
