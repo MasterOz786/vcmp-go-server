@@ -6,10 +6,34 @@ type Teams struct {
 	countEscort int
 	countDefend int
 	sessions    map[int]*PlayerSession
+	connected   map[int]struct{}
 }
 
 func NewTeams() *Teams {
-	return &Teams{sessions: make(map[int]*PlayerSession)}
+	return &Teams{
+		sessions:  make(map[int]*PlayerSession),
+		connected: make(map[int]struct{}),
+	}
+}
+
+func (t *Teams) TrackConnect(playerID int) {
+	t.connected[playerID] = struct{}{}
+}
+
+func (t *Teams) TrackDisconnect(playerID int) {
+	delete(t.connected, playerID)
+}
+
+func (t *Teams) ConnectedCount() int {
+	return len(t.connected)
+}
+
+func (t *Teams) ConnectedIDs() []int {
+	ids := make([]int, 0, len(t.connected))
+	for id := range t.connected {
+		ids = append(ids, id)
+	}
+	return ids
 }
 
 func (t *Teams) session(playerID int) *PlayerSession {

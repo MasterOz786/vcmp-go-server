@@ -139,15 +139,12 @@ func (e *Engine) cmdPack(playerID int, args []string) CommandResult {
 		return CommandResult{Handled: true, Deny: true}
 	}
 	e.ensurePlayerSession(playerID)
-	if !e.teams.SetPack(playerID, pack) {
+	if e.teams.Team(playerID) == 0 {
 		e.api.Send(playerID, ColourRed, "You are not assigned to a team yet.")
 		return CommandResult{Handled: true, Deny: true}
 	}
-	if uid := e.api.PlayerUID(playerID); uid != "" {
-		e.db.SavePreferredPack(uid, pack)
-	}
+	e.ApplyPack(playerID, pack)
 	team := e.teams.Team(playerID)
-	e.SchedulePlayerLoadout(playerID)
 	var name string
 	if team == TeamEscort {
 		name = EscortPacks()[pack].Name
@@ -191,10 +188,10 @@ func (e *Engine) cmdStats(playerID int) {
 		e.api.Send(playerID, ColourRed, "Could not load your UID.")
 		return
 	}
-	st, err := e.db.GetStats(uid)
-	if err != nil {
-		e.api.Send(playerID, ColourRed, "Stats unavailable.")
-		e.api.Log(fmt.Sprintf("[safari] get stats error: %v", err))
+	st, ok := e.db.CachedStats(uid)
+	if !ok {
+		e.db.PrefetchStats(uid)
+		e.api.Send(playerID, ColourYellow, "Stats loading — try again in a moment.")
 		return
 	}
 	e.api.Send(playerID, ColourWhite, fmt.Sprintf(
