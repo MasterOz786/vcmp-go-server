@@ -1,7 +1,7 @@
 package safari
 
 import (
-	"fmt"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -22,13 +22,17 @@ func (m *Marking) ClearPlayer(playerID int) {
 	delete(m.cooldowns, playerID)
 }
 
+func (m *Marking) ResetAll() {
+	m.cooldowns = make(map[int]time.Time)
+}
+
 func (m *Marking) TryMark(api API, db *DBWorker, senderID int, targetName string, score *Scoring) (bool, string) {
 	if api.PlayerTeam(senderID) != TeamEscort {
 		return false, "Only Escort team can mark targets."
 	}
 	if until, ok := m.cooldowns[senderID]; ok && time.Now().Before(until) {
 		left := int(time.Until(until).Seconds())
-		return false, fmt.Sprintf("Mark on cooldown (%ds left).", left)
+		return false, "Mark on cooldown (" + strconv.Itoa(left) + "s left)."
 	}
 	targetName = strings.TrimSpace(targetName)
 	if targetName == "" {
@@ -48,6 +52,5 @@ func (m *Marking) TryMark(api API, db *DBWorker, senderID int, targetName string
 		db.Enqueue(addMarkJob{uid: uid})
 	}
 	name := api.PlayerName(targetID)
-	api.Broadcast(ColourGreen, fmt.Sprintf("[ESCORT] Target marked: %s (+15)", name))
-	return true, ""
+	return true, name
 }

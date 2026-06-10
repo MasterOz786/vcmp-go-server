@@ -6,19 +6,29 @@ import (
 )
 
 const (
-	hydraStepMeters     = 5.0
-	checkpointRadiusM   = 15.0
+	hydraStepMeters   = 5.0
+	checkpointRadiusM = 15.0
+)
+
+type HydraState int
+
+const (
+	HydraIdle HydraState = iota
+	HydraPatrol
+	HydraDestroyed
+	HydraObjectiveReached
 )
 
 type Hydra struct {
-	VehicleID   int
-	Waypoints   []Vec3
-	Index       int
-	lastMinute  uint64
+	State      HydraState
+	VehicleID  int
+	Waypoints  []Vec3
+	Index      int
+	lastMinute uint64
 }
 
 func NewHydra() *Hydra {
-	return &Hydra{Index: 0}
+	return &Hydra{State: HydraIdle, Index: 0, VehicleID: -1}
 }
 
 func (h *Hydra) Spawn(api API, mapCfg MapConfig) int {
@@ -31,6 +41,9 @@ func (h *Hydra) Spawn(api API, mapCfg MapConfig) int {
 	h.VehicleID = api.CreateVehicle(HydraModel, mapCfg.World, pos, mapCfg.HydraAngle, 1, 1)
 	if h.VehicleID >= 0 {
 		api.SetVehicleHealth(h.VehicleID, HydraMaxHP)
+		h.State = HydraPatrol
+	} else {
+		h.State = HydraIdle
 	}
 	return h.VehicleID
 }
@@ -39,6 +52,9 @@ func (h *Hydra) Destroy(api API) {
 	if h.VehicleID >= 0 {
 		api.DeleteVehicle(h.VehicleID)
 		h.VehicleID = -1
+	}
+	if h.State == HydraPatrol {
+		h.State = HydraIdle
 	}
 }
 
@@ -49,22 +65,36 @@ func (h *Hydra) Health(api API) float32 {
 	return api.VehicleHealth(h.VehicleID)
 }
 
-func (h *Hydra) Tick(api API, score *Scoring, nowMs uint64) (checkpoint bool, escortWin bool, defendWin bool, msg string) {
-	if h.VehicleID < 0 {
-		return false, false, false, ""
+// TickResult carries hydra tick outcomes for the engine to announce.
+type TickResult struct {
+	Checkpoint      bool
+	EscortWin       bool
+	DefendWin       bool
+	CheckpointMsg   string
+	HydraMinuteMsg  string
+}
+
+func (h *Hydra) Tick(api API, score *Scoring, nowMs uint64) TickResult {
+	var res TickResult
+	if h.State != HydraPatrol || h.VehicleID < 0 {
+		return res
 	}
 	hp := api.VehicleHealth(h.VehicleID)
 	if hp <= 0 {
 		score.AddDefend(PointsHydraDestroy)
-		return false, false, true, "Hydra destroyed! Defenders win."
+		h.State = HydraDestroyed
+		res.DefendWin = true
+		return res
 	}
 
 	if len(h.Waypoints) == 0 {
-		return false, false, false, ""
+		return res
 	}
 
 	if h.Index >= len(h.Waypoints) {
-		return false, true, false, "Hydra reached its objective! Escort wins."
+		h.State = HydraObjectiveReached
+		res.EscortWin = true
+		return res
 	}
 
 	target := h.Waypoints[h.Index]
@@ -72,10 +102,15 @@ func (h *Hydra) Tick(api API, score *Scoring, nowMs uint64) (checkpoint bool, es
 	if dist(pos, target) <= checkpointRadiusM {
 		h.Index++
 		score.AddEscort(PointsCheckpoint)
+		res.Checkpoint = true
 		if h.Index >= len(h.Waypoints) {
-			return true, true, false, fmt.Sprintf("Final checkpoint reached! Escort +%d", PointsCheckpoint)
+			h.State = HydraObjectiveReached
+			res.EscortWin = true
+			res.CheckpointMsg = fmt.Sprintf("Final checkpoint reached! Escort +%d", PointsCheckpoint)
+		} else {
+			res.CheckpointMsg = fmt.Sprintf("Checkpoint %d/%d reached! Escort +%d", h.Index, len(h.Waypoints), PointsCheckpoint)
 		}
-		return true, false, false, fmt.Sprintf("Checkpoint %d/%d reached! Escort +%d", h.Index, len(h.Waypoints), PointsCheckpoint)
+		return res
 	}
 
 	h.moveToward(api, pos, target)
@@ -85,9 +120,9 @@ func (h *Hydra) Tick(api API, score *Scoring, nowMs uint64) (checkpoint bool, es
 	} else if nowMs-h.lastMinute >= 60000 {
 		h.lastMinute = nowMs
 		score.AddEscort(PointsHydraMinute)
-		msg = fmt.Sprintf("Hydra holding route (+%d escort)", PointsHydraMinute)
+		res.HydraMinuteMsg = fmt.Sprintf("Hydra holding route (+%d escort)", PointsHydraMinute)
 	}
-	return false, false, false, msg
+	return res
 }
 
 func (h *Hydra) moveToward(api API, pos, target Vec3) {

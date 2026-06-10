@@ -14,25 +14,30 @@ type Engine struct {
 	teams   *Teams
 	marking *Marking
 
+	autostartEnabled bool
+	tickCount        int
+
 	events chan Event
 	stop   chan struct{}
 	done   chan struct{}
 }
 
 func NewEngine(api API, db *DBWorker, cfg Config, mapCfg MapConfig, serverName, gameMode string) *Engine {
+	autostart := cfg.AutoStartPlayers > 0
 	return &Engine{
-		api:        api,
-		db:         db,
-		cfg:        cfg,
-		mapCfg:     mapCfg,
-		serverName: serverName,
-		gameMode:   gameMode,
-		round:      NewRound(),
-		teams:      NewTeams(),
-		marking:    NewMarking(cfg.MarkCooldownSec),
-		events:     make(chan Event, 256),
-		stop:       make(chan struct{}),
-		done:       make(chan struct{}),
+		api:              api,
+		db:               db,
+		cfg:              cfg,
+		mapCfg:           mapCfg,
+		serverName:       serverName,
+		gameMode:         gameMode,
+		round:            NewRound(),
+		teams:            NewTeams(),
+		marking:          NewMarking(cfg.MarkCooldownSec),
+		autostartEnabled: autostart,
+		events:           make(chan Event, 256),
+		stop:             make(chan struct{}),
+		done:             make(chan struct{}),
 	}
 }
 
@@ -53,12 +58,24 @@ func (e *Engine) Enqueue(ev Event) {
 	}
 }
 
+func (e *Engine) configureServer() {
+	e.api.SetServerOption(int(ServerOptionUseClasses), true)
+	e.api.SetServerOption(int(ServerOptionJoinMessages), false)
+	e.api.SetServerOption(int(ServerOptionDeathMessages), false)
+	e.api.SetServerOption(int(ServerOptionDisableDriveBy), e.cfg.DisableDriveBy)
+	e.api.SetServerOption(int(ServerOptionFastSwitch), e.cfg.FastSwitch)
+	e.api.SetServerOption(int(ServerOptionStuntBike), e.cfg.StuntBike)
+	e.api.SetServerOption(int(ServerOptionWallGlitch), e.cfg.WallGlitch)
+	e.api.SetServerOption(int(ServerOptionDisableHeliBladeDamage), e.cfg.DisableHeliBladeDmg)
+	e.teams.SetupClasses(e.api, e.mapCfg)
+}
+
 func (e *Engine) OnServerStart() {
 	e.api.SetServerName(e.serverName)
 	e.api.SetGameModeText(e.gameMode)
-	e.teams.SetupClasses(e.api, e.mapCfg)
+	e.configureServer()
 	e.api.Log("[safari] server ready — Project Safari: Hydra Warfare")
-	e.api.Broadcast(ColourCyan, "Project Safari loaded. /help for commands. Admin: /startsafari")
+	e.announce(MsgServerReady)
 }
 
 func (e *Engine) loop() {
@@ -88,19 +105,22 @@ func (e *Engine) handleEvent(ev Event) {
 		e.onDisconnect(ev.PlayerID)
 	case EvPlayerSpawn:
 		e.onSpawn(ev.PlayerID)
+	case EvPlayerDeath:
+		e.onDeath(ev.PlayerID, ev.KillerID)
 	case EvPlayerCommand:
 		_ = e.HandleCommand(ev.PlayerID, ev.Command)
 	case EvVehicleExplode:
 		e.onVehicleExplode(ev.VehicleID)
 	case EvRequestSpawn:
-		allow := e.round.State == RoundActive || e.round.State == RoundIdle
-		ev.SpawnResult <- allow
+		ev.SpawnResult <- e.HandleRequestSpawn(ev.PlayerID)
 	}
 }
 
 func (e *Engine) onTick() {
+	e.tickCount++
+
 	if e.round.MaybeReset() {
-		e.api.Broadcast(ColourWhite, "Ready for next round. /startsafari")
+		e.announce(MsgRoundReset)
 	}
 	if e.round.State != RoundActive {
 		if e.round.State == RoundIdle {
@@ -109,27 +129,57 @@ func (e *Engine) onTick() {
 		return
 	}
 
-	if ended, winner, reason := e.round.CheckTimer(e.api); ended {
+	if e.round.Paused {
+		return
+	}
+
+	if ended, winner, reason := e.round.CheckTimer(); ended {
 		e.endRound(winner, reason)
 		return
 	}
 
-	nowMs := e.api.ServerTimeMs()
-	_, escortWin, defendWin, msg := e.round.Hydra.Tick(e.api, &e.round.Score, nowMs)
-	if msg != "" {
-		e.api.Broadcast(ColourYellow, msg)
+	if e.cfg.StatusBroadcastSec > 0 && e.tickCount%e.cfg.StatusBroadcastSec == 0 {
+		e.announce(MsgStatusBroadcast, e.formatStatusLine())
 	}
-	if defendWin {
+
+	if e.cfg.WeaponCheckSec > 0 && e.tickCount%e.cfg.WeaponCheckSec == 0 {
+		e.enforceAllWeapons()
+	}
+
+	nowMs := e.api.ServerTimeMs()
+	tick := e.round.Hydra.Tick(e.api, &e.round.Score, nowMs)
+	if tick.CheckpointMsg != "" {
+		e.announce(MsgCheckpoint, tick.CheckpointMsg)
+		e.teams.SyncScores(e.api, e.round.Score)
+	}
+	if tick.HydraMinuteMsg != "" {
+		e.announce(MsgHydraMinute, tick.HydraMinuteMsg)
+		e.teams.SyncScores(e.api, e.round.Score)
+	}
+	if tick.DefendWin {
 		e.endRound(TeamDefend, "Hydra destroyed!")
 		return
 	}
-	if escortWin {
+	if tick.EscortWin {
 		e.endRound(TeamEscort, "Hydra reached its objective!")
 	}
 }
 
+func (e *Engine) enforceAllWeapons() {
+	for i := 0; i < MaxPlayers; i++ {
+		if !e.api.IsConnected(i) {
+			continue
+		}
+		team := e.teams.Team(i)
+		if team == 0 {
+			continue
+		}
+		EnforceAllowed(e.api, i, team, e.teams.Pack(i))
+	}
+}
+
 func (e *Engine) maybeAutoStart() {
-	if e.cfg.AutoStartPlayers <= 0 {
+	if !e.autostartEnabled || e.cfg.AutoStartPlayers <= 0 {
 		return
 	}
 	n := 0
@@ -147,12 +197,44 @@ func (e *Engine) startRound() {
 	if e.round.State == RoundActive {
 		return
 	}
-	e.round.Start(e.api, e.mapCfg, e.cfg.RoundMinutes)
+	if e.round.Start(e.api, e.mapCfg, e.cfg.RoundMinutes, e.teams, e.marking) {
+		e.announce(MsgRoundStart, e.round.RoundMinutesStr())
+	}
 }
 
 func (e *Engine) endRound(winnerTeam int, reason string) {
 	e.round.End(e.api, winnerTeam, reason)
+	colour := "green"
+	teamName := "Escort"
+	if winnerTeam == TeamDefend {
+		colour = "red"
+		teamName = "Defenders"
+	}
+	e.announce(MsgRoundEnd, colour, teamName, reason,
+		strItoa(e.round.Score.EscortScore), strItoa(e.round.Score.DefendScore))
 	e.persistRound(winnerTeam)
+}
+
+func strItoa(n int) string {
+	if n == 0 {
+		return "0"
+	}
+	neg := n < 0
+	if neg {
+		n = -n
+	}
+	var buf [16]byte
+	i := len(buf)
+	for n > 0 {
+		i--
+		buf[i] = byte('0' + n%10)
+		n /= 10
+	}
+	if neg {
+		i--
+		buf[i] = '-'
+	}
+	return string(buf[i:])
 }
 
 func (e *Engine) persistRound(winnerTeam int) {
@@ -210,6 +292,12 @@ func (e *Engine) onConnect(playerID int) {
 		e.db.Enqueue(upsertPlayerJob{uid: uid, name: name})
 	}
 	e.teams.Welcome(e.api, playerID)
+	if e.round.State == RoundIdle {
+		lobby := e.cfg.LobbyPosition(e.mapCfg)
+		if lobby.X != 0 || lobby.Y != 0 || lobby.Z != 0 {
+			_ = e.api.SetPlayerPosition(playerID, lobby)
+		}
+	}
 }
 
 func (e *Engine) onDisconnect(playerID int) {
@@ -224,11 +312,25 @@ func (e *Engine) onSpawn(playerID int) {
 	}
 	pack := e.teams.Pack(playerID)
 	ApplyLoadout(e.api, playerID, team, pack)
+	EnforceAllowed(e.api, playerID, team, pack)
+	e.teams.MarkSpawned(playerID)
 	score := e.round.Score.EscortScore
 	if team == TeamDefend {
 		score = e.round.Score.DefendScore
 	}
 	e.api.SetPlayerScore(playerID, score)
+}
+
+func (e *Engine) onDeath(playerID, killerID int) {
+	e.teams.AdvanceSpawn(playerID)
+	victim := e.api.PlayerName(playerID)
+	var msg string
+	if killerID < 0 || !e.api.IsConnected(killerID) {
+		msg = victim + " committed suicide!"
+	} else {
+		msg = victim + " was killed by " + e.api.PlayerName(killerID) + "!"
+	}
+	e.announce(MsgKillFeed, msg)
 }
 
 func (e *Engine) onVehicleExplode(vehicleID int) {
@@ -247,7 +349,34 @@ func (e *Engine) HandleRequestSpawn(playerID int) bool {
 	return true
 }
 
+func (e *Engine) HandleRequestClass(playerID, classIndex int) bool {
+	return e.teams.AllowClassRequest(playerID, classIndex, e.round.State == RoundActive)
+}
+
 func (e *Engine) HandleCommandSync(playerID int, cmd string) bool {
 	res := e.HandleCommand(playerID, cmd)
 	return res.Deny
+}
+
+func (e *Engine) TogglePause() bool {
+	paused := e.round.TogglePause()
+	if paused {
+		e.announce(MsgPause)
+	} else {
+		e.announce(MsgUnpause)
+	}
+	return paused
+}
+
+func (e *Engine) SetAutostart(on bool) {
+	e.autostartEnabled = on
+	if on {
+		e.announce(MsgAutostart, "enabled")
+	} else {
+		e.announce(MsgAutostart, "disabled")
+	}
+}
+
+func (e *Engine) AutostartEnabled() bool {
+	return e.autostartEnabled
 }

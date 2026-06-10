@@ -17,7 +17,6 @@ func normalizeCommand(raw string) (string, bool) {
 	if cmd == "" {
 		return "", false
 	}
-	// VC:MP OnPlayerCommand passes "help" / "pack 1" without the leading slash.
 	if !strings.HasPrefix(cmd, "/") {
 		cmd = "/" + cmd
 	}
@@ -60,6 +59,39 @@ func (e *Engine) HandleCommand(playerID int, raw string) CommandResult {
 			e.endRound(TeamDefend, "Round stopped by admin.")
 		}
 		return CommandResult{Handled: true, Deny: true}
+	case "/pausesafari":
+		if !e.api.IsAdmin(playerID) {
+			e.api.Send(playerID, ColourRed, "Admin only.")
+			return CommandResult{Handled: true, Deny: true}
+		}
+		if e.round.State != RoundActive {
+			e.api.Send(playerID, ColourYellow, "No active round.")
+			return CommandResult{Handled: true, Deny: true}
+		}
+		e.TogglePause()
+		return CommandResult{Handled: true, Deny: true}
+	case "/autostart":
+		if !e.api.IsAdmin(playerID) {
+			e.api.Send(playerID, ColourRed, "Admin only.")
+			return CommandResult{Handled: true, Deny: true}
+		}
+		if len(args) == 0 {
+			state := "off"
+			if e.AutostartEnabled() {
+				state = "on"
+			}
+			e.api.Send(playerID, ColourWhite, "Autostart is "+state+".")
+			return CommandResult{Handled: true, Deny: true}
+		}
+		switch strings.ToLower(args[0]) {
+		case "on", "1", "true":
+			e.SetAutostart(true)
+		case "off", "0", "false":
+			e.SetAutostart(false)
+		default:
+			e.api.Send(playerID, ColourYellow, "Usage: /autostart on|off")
+		}
+		return CommandResult{Handled: true, Deny: true}
 	case "/pack":
 		return e.cmdPack(playerID, args)
 	case "/mark":
@@ -84,6 +116,8 @@ func (e *Engine) sendHelp(playerID int) {
 		"/stats — your persistent stats",
 		"/startsafari — admin: start round",
 		"/stopsafari — admin: stop round",
+		"/pausesafari — admin: pause/resume round",
+		"/autostart on|off — admin: toggle autostart",
 	}
 	for _, l := range lines {
 		e.api.Send(playerID, ColourWhite, l)
@@ -98,6 +132,10 @@ func (e *Engine) cmdPack(playerID int, args []string) CommandResult {
 	pack, err := strconv.Atoi(args[0])
 	if err != nil || pack < 1 || pack > 2 {
 		e.api.Send(playerID, ColourYellow, "Pack must be 1 or 2.")
+		return CommandResult{Handled: true, Deny: true}
+	}
+	if e.round.State == RoundActive && e.teams.HasSpawnedThisRound(playerID) {
+		e.api.Send(playerID, ColourYellow, "Cannot change pack after spawning this round.")
 		return CommandResult{Handled: true, Deny: true}
 	}
 	if e.teams.Team(playerID) == 0 {
@@ -120,15 +158,16 @@ func (e *Engine) cmdPack(playerID int, args []string) CommandResult {
 
 func (e *Engine) cmdMark(playerID int, args []string) CommandResult {
 	if e.round.State != RoundActive {
-		e.api.Send(playerID, ColourYellow, "No active round.")
+		e.announceTo(playerID, MsgMarkFail, "No active round.")
 		return CommandResult{Handled: true, Deny: true}
 	}
 	target := strings.Join(args, " ")
 	ok, msg := e.marking.TryMark(e.api, e.db, playerID, target, &e.round.Score)
 	if !ok {
-		e.api.Send(playerID, ColourYellow, msg)
-	} else if msg != "" {
-		e.api.Send(playerID, ColourGreen, msg)
+		e.announceTo(playerID, MsgMarkFail, msg)
+	} else {
+		e.announce(MsgMarkSuccess, msg)
+		e.teams.SyncScores(e.api, e.round.Score)
 	}
 	return CommandResult{Handled: true, Deny: true}
 }
@@ -138,16 +177,7 @@ func (e *Engine) cmdStatus(playerID int) {
 	case RoundIdle:
 		e.api.Send(playerID, ColourWhite, "Safari idle. Waiting for round start.")
 	case RoundActive:
-		hp := e.round.Hydra.Health(e.api)
-		idx := e.round.Hydra.Index
-		total := len(e.round.Hydra.Waypoints)
-		left := e.round.TimeLeft()
-		e.api.Send(playerID, ColourCyan, fmt.Sprintf(
-			"Hydra HP: %.0f/%.0f | Checkpoint: %d/%d | Escort %d - Defend %d | Time: %s",
-			hp, HydraMaxHP, idx, total,
-			e.round.Score.EscortScore, e.round.Score.DefendScore,
-			formatDuration(left),
-		))
+		e.api.Send(playerID, ColourCyan, e.formatStatusLine())
 	case RoundEnded:
 		e.api.Send(playerID, ColourWhite, fmt.Sprintf("Round ended: %s", e.round.EndReason))
 	}

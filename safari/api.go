@@ -15,6 +15,7 @@ type API interface {
 	SetPlayerTeam(playerID, team int)
 	SetPlayerScore(playerID, score int)
 	GetPlayerScore(playerID int) int
+	SetPlayerPosition(playerID int, pos Vec3) error
 
 	SetServerName(name string)
 	SetGameModeText(text string)
@@ -31,6 +32,8 @@ type API interface {
 
 	RemoveAllWeapons(playerID int)
 	GiveWeapon(playerID, weaponID, ammo int)
+	WeaponAtSlot(playerID, slot int) int
+	RemoveWeapon(playerID, weaponID int) error
 
 	ServerTimeMs() uint64
 }

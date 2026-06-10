@@ -3,5 +3,12 @@
   "map_file": "safari_maps/patrol_default.json",
   "round_minutes": 15,
   "auto_start_players": 2,
-  "mark_cooldown_sec": 30
+  "mark_cooldown_sec": 30,
+  "status_broadcast_sec": 30,
+  "weapon_check_sec": 5,
+  "disable_driveby": true,
+  "fast_switch": true,
+  "stunt_bike": true,
+  "wallglitch": false,
+  "disable_heli_blade_damage": true
 }

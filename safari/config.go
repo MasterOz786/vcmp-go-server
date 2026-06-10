@@ -12,34 +12,44 @@ const (
 )
 
 type Config struct {
-	DBPath           string `json:"db_path"`
-	MapFile          string `json:"map_file"`
-	RoundMinutes     int    `json:"round_minutes"`
-	AutoStartPlayers int    `json:"auto_start_players"`
-	MarkCooldownSec  int    `json:"mark_cooldown_sec"`
+	DBPath              string `json:"db_path"`
+	MapFile             string `json:"map_file"`
+	RoundMinutes        int    `json:"round_minutes"`
+	AutoStartPlayers    int    `json:"auto_start_players"`
+	MarkCooldownSec     int    `json:"mark_cooldown_sec"`
+	StatusBroadcastSec  int    `json:"status_broadcast_sec"`
+	WeaponCheckSec      int    `json:"weapon_check_sec"`
+	DisableDriveBy      bool   `json:"disable_driveby"`
+	FastSwitch          bool   `json:"fast_switch"`
+	StuntBike           bool   `json:"stunt_bike"`
+	WallGlitch          bool   `json:"wallglitch"`
+	DisableHeliBladeDmg bool   `json:"disable_heli_blade_damage"`
+	LobbySpawn          *Vec3  `json:"lobby_spawn"`
 }
 
 type MapConfig struct {
-	HydraStart    Vec3   `json:"hydra_start"`
-	HydraAngle    float32 `json:"hydra_angle"`
-	World         int    `json:"world"`
-	Waypoints     []Vec3 `json:"waypoints"`
-	EscortSpawns  []Vec3 `json:"escort_spawns"`
-	DefendSpawns  []Vec3 `json:"defend_spawns"`
-}
-
-type SpawnPoint struct {
-	Pos   Vec3
-	Angle float32
+	HydraStart   Vec3   `json:"hydra_start"`
+	HydraAngle   float32 `json:"hydra_angle"`
+	World        int    `json:"world"`
+	Waypoints    []Vec3 `json:"waypoints"`
+	EscortSpawns []Vec3 `json:"escort_spawns"`
+	DefendSpawns []Vec3 `json:"defend_spawns"`
 }
 
 func DefaultConfig() Config {
 	return Config{
-		DBPath:           defaultDBPath,
-		MapFile:          defaultMapFile,
-		RoundMinutes:     15,
-		AutoStartPlayers: 2,
-		MarkCooldownSec:  30,
+		DBPath:             defaultDBPath,
+		MapFile:            defaultMapFile,
+		RoundMinutes:       15,
+		AutoStartPlayers:   2,
+		MarkCooldownSec:    30,
+		StatusBroadcastSec: 30,
+		WeaponCheckSec:     5,
+		DisableDriveBy:     true,
+		FastSwitch:         true,
+		StuntBike:          true,
+		WallGlitch:         false,
+		DisableHeliBladeDmg: true,
 	}
 }
 
@@ -67,6 +77,12 @@ func LoadConfig() Config {
 	if cfg.MarkCooldownSec <= 0 {
 		cfg.MarkCooldownSec = 30
 	}
+	if cfg.StatusBroadcastSec <= 0 {
+		cfg.StatusBroadcastSec = 30
+	}
+	if cfg.WeaponCheckSec <= 0 {
+		cfg.WeaponCheckSec = 5
+	}
 	return cfg
 }
 
@@ -79,11 +95,18 @@ func LoadMap(path string) (MapConfig, error) {
 	if err := json.Unmarshal(data, &m); err != nil {
 		return m, err
 	}
-	if m.World == 0 {
-		m.World = 0
-	}
 	if m.HydraAngle == 0 {
 		m.HydraAngle = 90
 	}
 	return m, nil
+}
+
+func (c Config) LobbyPosition(mapCfg MapConfig) Vec3 {
+	if c.LobbySpawn != nil {
+		return *c.LobbySpawn
+	}
+	if len(mapCfg.EscortSpawns) > 0 {
+		return mapCfg.EscortSpawns[0]
+	}
+	return Vec3{}
 }

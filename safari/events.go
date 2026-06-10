@@ -7,16 +7,18 @@ const (
 	EvPlayerConnect
 	EvPlayerDisconnect
 	EvPlayerSpawn
+	EvPlayerDeath
 	EvPlayerCommand
 	EvVehicleExplode
 	EvRequestSpawn
 )
 
 type Event struct {
-	Type     EventType
-	PlayerID int
-	Command  string
-	VehicleID int
+	Type        EventType
+	PlayerID    int
+	KillerID    int
+	Command     string
+	VehicleID   int
 	SpawnResult chan bool
 }
 
@@ -34,6 +36,10 @@ func NewDisconnectEvent(id int) Event {
 
 func NewSpawnEvent(id int) Event {
 	return Event{Type: EvPlayerSpawn, PlayerID: id}
+}
+
+func NewDeathEvent(playerID, killerID int) Event {
+	return Event{Type: EvPlayerDeath, PlayerID: playerID, KillerID: killerID}
 }
 
 func NewCommandEvent(id int, cmd string) Event {

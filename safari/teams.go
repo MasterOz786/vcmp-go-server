@@ -5,27 +5,26 @@ import "fmt"
 type Teams struct {
 	countEscort int
 	countDefend int
-	assignments map[int]int
-	packs       map[int]int
+	sessions    map[int]*PlayerSession
 }
 
 func NewTeams() *Teams {
-	return &Teams{
-		assignments: make(map[int]int),
-		packs:       make(map[int]int),
-	}
+	return &Teams{sessions: make(map[int]*PlayerSession)}
+}
+
+func (t *Teams) session(playerID int) *PlayerSession {
+	return t.sessions[playerID]
 }
 
 func (t *Teams) Assign(api API, playerID int) int {
-	if team, ok := t.assignments[playerID]; ok {
-		return team
+	if s := t.sessions[playerID]; s != nil {
+		return s.Team
 	}
 	team := TeamEscort
 	if t.countEscort > t.countDefend {
 		team = TeamDefend
 	}
-	t.assignments[playerID] = team
-	t.packs[playerID] = 1
+	t.sessions[playerID] = newPlayerSession(team, 1)
 	api.SetPlayerTeam(playerID, team)
 	if team == TeamEscort {
 		t.countEscort++
@@ -36,39 +35,91 @@ func (t *Teams) Assign(api API, playerID int) int {
 }
 
 func (t *Teams) Remove(playerID int) {
-	team, ok := t.assignments[playerID]
+	s, ok := t.sessions[playerID]
 	if !ok {
 		return
 	}
-	if team == TeamEscort {
+	if s.Team == TeamEscort {
 		t.countEscort--
-	} else {
+	} else if s.Team == TeamDefend {
 		t.countDefend--
 	}
-	delete(t.assignments, playerID)
-	delete(t.packs, playerID)
+	delete(t.sessions, playerID)
 }
 
 func (t *Teams) Team(playerID int) int {
-	return t.assignments[playerID]
+	if s := t.sessions[playerID]; s != nil {
+		return s.Team
+	}
+	return 0
 }
 
 func (t *Teams) SetPack(playerID, pack int) bool {
 	if pack < 1 || pack > 2 {
 		return false
 	}
-	if _, ok := t.assignments[playerID]; !ok {
+	s := t.sessions[playerID]
+	if s == nil {
 		return false
 	}
-	t.packs[playerID] = pack
+	s.Pack = pack
 	return true
 }
 
 func (t *Teams) Pack(playerID int) int {
-	if p, ok := t.packs[playerID]; ok {
-		return p
+	if s := t.sessions[playerID]; s != nil {
+		return s.Pack
 	}
 	return 1
+}
+
+func (t *Teams) HasSpawnedThisRound(playerID int) bool {
+	if s := t.sessions[playerID]; s != nil {
+		return s.HasSpawnedThisRound
+	}
+	return false
+}
+
+func (t *Teams) MarkSpawned(playerID int) {
+	if s := t.sessions[playerID]; s != nil {
+		s.HasSpawnedThisRound = true
+	}
+}
+
+func (t *Teams) ResetRoundState() {
+	for _, s := range t.sessions {
+		s.SpawnIndex = 0
+		s.HasSpawnedThisRound = false
+	}
+}
+
+func (t *Teams) AdvanceSpawn(playerID int) {
+	if s := t.sessions[playerID]; s != nil {
+		s.SpawnIndex++
+	}
+}
+
+func (t *Teams) CountEscort() int { return t.countEscort }
+func (t *Teams) CountDefend() int { return t.countDefend }
+
+func (t *Teams) AllowClassRequest(playerID, classIndex int, roundActive bool) bool {
+	if classIndex < 0 || classIndex > 3 {
+		return false
+	}
+	if !roundActive {
+		return true
+	}
+	team := t.Team(playerID)
+	if team == 0 {
+		return true
+	}
+	switch team {
+	case TeamEscort:
+		return t.countEscort <= t.countDefend
+	case TeamDefend:
+		return t.countDefend <= t.countEscort
+	}
+	return true
 }
 
 func (t *Teams) RoleName(team int) string {
@@ -87,11 +138,45 @@ func (t *Teams) Welcome(api API, playerID int) {
 	api.Send(playerID, colour, fmt.Sprintf("Project Safari: you are on team %s. Use /pack 1|2 and /help.", t.RoleName(team)))
 }
 
-func (t *Teams) SetupClasses(api API, mapCfg MapConfig) {
-	api.SetServerOption(int(ServerOptionUseClasses), true)
-	api.SetServerOption(int(ServerOptionJoinMessages), false)
-	api.SetServerOption(int(ServerOptionDeathMessages), false)
+func (t *Teams) TeleportToSpawns(api API, mapCfg MapConfig) {
+	spIdx := 0
+	for playerID, s := range t.sessions {
+		if !api.IsConnected(playerID) {
+			continue
+		}
+		var spawns []Vec3
+		switch s.Team {
+		case TeamEscort:
+			spawns = mapCfg.EscortSpawns
+		case TeamDefend:
+			spawns = mapCfg.DefendSpawns
+		default:
+			continue
+		}
+		if len(spawns) == 0 {
+			continue
+		}
+		pos := spawns[spIdx%len(spawns)]
+		_ = api.SetPlayerPosition(playerID, pos)
+		s.SpawnIndex = spIdx % len(spawns)
+		spIdx++
+	}
+}
 
+func (t *Teams) SyncScores(api API, score Scoring) {
+	for playerID, s := range t.sessions {
+		if !api.IsConnected(playerID) {
+			continue
+		}
+		pts := score.EscortScore
+		if s.Team == TeamDefend {
+			pts = score.DefendScore
+		}
+		api.SetPlayerScore(playerID, pts)
+	}
+}
+
+func (t *Teams) SetupClasses(api API, mapCfg MapConfig) {
 	weapons := [6]int{WeaponShotgun, 50, 0, 0, 0, 0}
 	for i, sp := range mapCfg.EscortSpawns {
 		if i >= 4 {
@@ -114,3 +199,8 @@ func (t *Teams) SetupClasses(api API, mapCfg MapConfig) {
 const ServerOptionUseClasses = 18
 const ServerOptionJoinMessages = 15
 const ServerOptionDeathMessages = 16
+const ServerOptionDisableDriveBy = 8
+const ServerOptionFastSwitch = 6
+const ServerOptionStuntBike = 14
+const ServerOptionWallGlitch = 19
+const ServerOptionDisableHeliBladeDamage = 21

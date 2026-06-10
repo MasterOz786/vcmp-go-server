@@ -7,7 +7,7 @@ require (
 	modernc.org/sqlite v1.52.0
 )
 
-replace github.com/masteroz/vcmp-go-plugin => ../vcmp-go-plugin
+replace github.com/masteroz/vcmp-go-plugin => ../plugin
 
 require (
 	github.com/dustin/go-humanize v1.0.1 // indirect

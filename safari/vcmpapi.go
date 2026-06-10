@@ -39,6 +39,10 @@ func (VCMPAPI) SetPlayerScore(playerID, score int) { vcmp.API.Player.SetScore(pl
 
 func (VCMPAPI) GetPlayerScore(playerID int) int { return vcmp.API.Player.Score(playerID) }
 
+func (VCMPAPI) SetPlayerPosition(playerID int, pos Vec3) error {
+	return vcmp.API.Player.SetPosition(playerID, fromSafariVec3(pos))
+}
+
 func (VCMPAPI) SetServerName(name string) { vcmp.API.Server.SetName(name) }
 
 func (VCMPAPI) SetGameModeText(text string) { vcmp.API.Server.SetGameModeText(text) }
@@ -79,6 +83,14 @@ func (VCMPAPI) RemoveAllWeapons(playerID int) { vcmp.API.Player.RemoveAllWeapons
 
 func (VCMPAPI) GiveWeapon(playerID, weaponID, ammo int) {
 	vcmp.API.Player.GiveWeapon(playerID, weaponID, ammo)
+}
+
+func (VCMPAPI) WeaponAtSlot(playerID, slot int) int {
+	return vcmp.API.Player.WeaponAtSlot(playerID, slot)
+}
+
+func (VCMPAPI) RemoveWeapon(playerID, weaponID int) error {
+	return vcmp.API.Player.RemoveWeapon(playerID, weaponID)
 }
 
 func (VCMPAPI) ServerTimeMs() uint64 { return vcmp.API.Server.Time() }
