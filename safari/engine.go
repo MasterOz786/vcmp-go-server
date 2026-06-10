@@ -1,5 +1,7 @@
 package safari
 
+import "fmt"
+
 // Engine runs all gameplay on the VC:MP callback thread (Flag Raids style).
 // Only SQLite I/O uses a background worker with in-memory caches.
 type Engine struct {
@@ -326,6 +328,7 @@ func (e *Engine) OnConnect(playerID int) {
 		e.db.Enqueue(upsertPlayerJob{uid: uid, name: name})
 		e.db.PrefetchPreferredPack(uid)
 		e.db.PrefetchStats(uid)
+		e.db.PrefetchRegistered(uid)
 	}
 	e.ensurePlayerSession(playerID)
 	e.teams.Welcome(e.api, playerID)
@@ -335,6 +338,17 @@ func (e *Engine) OnConnect(playerID int) {
 			_ = e.api.SetPlayerPosition(playerID, lobby)
 		}
 	}
+}
+
+func (e *Engine) maybePromptRegistration(playerID int, uid string) {
+	registered, err := e.db.IsRegistered(uid)
+	if err != nil {
+		e.api.Log(fmt.Sprintf("[safari] registration lookup failed for %s: %v", uid, err))
+	}
+	if registered {
+		return
+	}
+	e.promptRegistration(playerID)
 }
 
 func (e *Engine) OnDisconnect(playerID int) {

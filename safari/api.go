@@ -37,4 +37,6 @@ type API interface {
 	RemoveWeapon(playerID, weaponID int) error
 
 	ServerTimeMs() uint64
+
+	SendScriptData(playerID int, data []byte) error
 }

@@ -80,25 +80,41 @@ func (j prefetchStatsJob) Run(store *Store) error {
 	return nil
 }
 
+type prefetchRegisteredJob struct {
+	uid string
+	w   *DBWorker
+}
+
+func (j prefetchRegisteredJob) Run(store *Store) error {
+	ok, err := store.IsRegistered(j.uid)
+	if err != nil {
+		return err
+	}
+	j.w.setCachedRegistered(j.uid, ok)
+	return nil
+}
+
 type DBWorker struct {
 	store  *Store
 	jobs   chan DBJob
 	done   chan struct{}
 	closed chan struct{}
 
-	mu         sync.RWMutex
-	packCache  map[string]int
-	statsCache map[string]PlayerStats
+	mu              sync.RWMutex
+	packCache       map[string]int
+	statsCache      map[string]PlayerStats
+	registeredCache map[string]bool
 }
 
 func NewDBWorker(store *Store, queueSize int) *DBWorker {
 	return &DBWorker{
-		store:      store,
-		jobs:       make(chan DBJob, queueSize),
-		done:       make(chan struct{}),
-		closed:     make(chan struct{}),
-		packCache:  make(map[string]int),
-		statsCache: make(map[string]PlayerStats),
+		store:           store,
+		jobs:            make(chan DBJob, queueSize),
+		done:            make(chan struct{}),
+		closed:          make(chan struct{}),
+		packCache:       make(map[string]int),
+		statsCache:      make(map[string]PlayerStats),
+		registeredCache: make(map[string]bool),
 	}
 }
 
@@ -195,6 +211,44 @@ func (w *DBWorker) InvalidateStats(uid string) {
 func (w *DBWorker) SavePreferredPack(uid string, pack int) {
 	w.setCachedPack(uid, pack)
 	w.Enqueue(savePackJob{uid: uid, pack: pack, w: w})
+}
+
+func (w *DBWorker) setCachedRegistered(uid string, registered bool) {
+	w.mu.Lock()
+	w.registeredCache[uid] = registered
+	w.mu.Unlock()
+}
+
+func (w *DBWorker) CachedRegistered(uid string) (bool, bool) {
+	w.mu.RLock()
+	v, ok := w.registeredCache[uid]
+	w.mu.RUnlock()
+	return v, ok
+}
+
+func (w *DBWorker) PrefetchRegistered(uid string) {
+	if uid == "" {
+		return
+	}
+	w.Enqueue(prefetchRegisteredJob{uid: uid, w: w})
+}
+
+func (w *DBWorker) IsRegistered(uid string) (bool, error) {
+	if uid == "" {
+		return false, nil
+	}
+	if v, ok := w.CachedRegistered(uid); ok {
+		return v, nil
+	}
+	return w.store.IsRegistered(uid)
+}
+
+func (w *DBWorker) RegisterAccount(uid, name, passwordHash string) error {
+	if err := w.store.RegisterAccount(uid, name, passwordHash); err != nil {
+		return err
+	}
+	w.setCachedRegistered(uid, true)
+	return nil
 }
 
 func (w *DBWorker) Stop() {

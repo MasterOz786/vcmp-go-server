@@ -102,6 +102,9 @@ func (e *Engine) HandleCommand(playerID int, raw string) CommandResult {
 	case "/stats":
 		e.cmdStats(playerID)
 		return CommandResult{Handled: true, Deny: true}
+	case "/register":
+		e.cmdRegister(playerID)
+		return CommandResult{Handled: true, Deny: true}
 	default:
 		return CommandResult{}
 	}
@@ -114,6 +117,7 @@ func (e *Engine) sendHelp(playerID int) {
 		"/mark [name] — Escort: designate target",
 		"/status — round info",
 		"/stats — your persistent stats",
+		"/register — open registration window",
 		"/startsafari — admin: start round",
 		"/stopsafari — admin: stop round",
 		"/pausesafari — admin: pause/resume round",
@@ -207,4 +211,23 @@ func formatDuration(d time.Duration) string {
 	m := int(d.Minutes())
 	s := int(d.Seconds()) % 60
 	return fmt.Sprintf("%d:%02d", m, s)
+}
+
+func (e *Engine) cmdRegister(playerID int) {
+	uid := e.api.PlayerUID(playerID)
+	if uid == "" {
+		e.api.Send(playerID, ColourRed, "Could not load your UID.")
+		return
+	}
+	registered, err := e.db.IsRegistered(uid)
+	if err != nil {
+		e.api.Send(playerID, ColourRed, "Could not check registration status.")
+		return
+	}
+	if registered {
+		e.api.Send(playerID, ColourYellow, "You are already registered.")
+		e.SendHideRegister(playerID)
+		return
+	}
+	e.promptRegistration(playerID)
 }

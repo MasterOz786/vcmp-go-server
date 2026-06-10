@@ -12,7 +12,9 @@ const schema = `
 CREATE TABLE IF NOT EXISTS players (
   uid TEXT PRIMARY KEY,
   name TEXT NOT NULL,
-  last_seen INTEGER NOT NULL
+  last_seen INTEGER NOT NULL,
+  password_hash TEXT NOT NULL DEFAULT '',
+  registered INTEGER NOT NULL DEFAULT 0
 );
 CREATE TABLE IF NOT EXISTS player_stats (
   uid TEXT PRIMARY KEY REFERENCES players(uid),
@@ -53,6 +55,8 @@ func OpenStore(path string) (*Store, error) {
 		return nil, err
 	}
 	_, _ = db.Exec(`ALTER TABLE player_stats ADD COLUMN preferred_pack INTEGER NOT NULL DEFAULT 1`)
+	_, _ = db.Exec(`ALTER TABLE players ADD COLUMN password_hash TEXT NOT NULL DEFAULT ''`)
+	_, _ = db.Exec(`ALTER TABLE players ADD COLUMN registered INTEGER NOT NULL DEFAULT 0`)
 	return &Store{db: db}, nil
 }
 
@@ -61,6 +65,37 @@ func (s *Store) Close() error {
 		return nil
 	}
 	return s.db.Close()
+}
+
+func (s *Store) IsRegistered(uid string) (bool, error) {
+	var registered int
+	err := s.db.QueryRow(`SELECT registered FROM players WHERE uid = ?`, uid).Scan(&registered)
+	if err == sql.ErrNoRows {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	return registered != 0, nil
+}
+
+func (s *Store) RegisterAccount(uid, name, passwordHash string) error {
+	now := time.Now().Unix()
+	_, err := s.db.Exec(
+		`INSERT INTO players (uid, name, last_seen, password_hash, registered)
+		 VALUES (?, ?, ?, ?, 1)
+		 ON CONFLICT(uid) DO UPDATE SET
+		   name = excluded.name,
+		   last_seen = excluded.last_seen,
+		   password_hash = excluded.password_hash,
+		   registered = 1`,
+		uid, name, now, passwordHash,
+	)
+	if err != nil {
+		return err
+	}
+	_, err = s.db.Exec(`INSERT INTO player_stats (uid) VALUES (?) ON CONFLICT(uid) DO NOTHING`, uid)
+	return err
 }
 
 func (s *Store) UpsertPlayer(uid, name string) error {

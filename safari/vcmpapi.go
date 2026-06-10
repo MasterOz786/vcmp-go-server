@@ -96,3 +96,7 @@ func (VCMPAPI) RemoveWeapon(playerID, weaponID int) error {
 }
 
 func (VCMPAPI) ServerTimeMs() uint64 { return vcmp.API.Server.Time() }
+
+func (VCMPAPI) SendScriptData(playerID int, data []byte) error {
+	return vcmp.API.Player.SendScriptData(playerID, data)
+}
