@@ -27,7 +27,7 @@ func NewRound() *Round {
 	}
 }
 
-func (r *Round) Start(api API, mapCfg MapConfig, roundMinutes int, teams *Teams, marking *Marking, hydraModels []int) bool {
+func (r *Round) Start(api API, mapCfg MapConfig, roundMinutes int, teams *Teams, marking *Marking, hydraModel int) bool {
 	r.State = RoundActive
 	r.Score = Scoring{}
 	r.StartedAt = time.Now()
@@ -40,7 +40,7 @@ func (r *Round) Start(api API, mapCfg MapConfig, roundMinutes int, teams *Teams,
 	r.roundMinutes = roundMinutes
 	r.Hydra.lastMinute = 0
 
-	vid := r.Hydra.Spawn(api, mapCfg, hydraModels)
+	vid := r.Hydra.Spawn(api, mapCfg, hydraModel)
 	if vid < 0 {
 		api.Log("[safari] failed to spawn Hydra")
 		r.State = RoundIdle

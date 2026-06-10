@@ -2,44 +2,15 @@ package safari
 
 import "fmt"
 
-// DefaultHydraModelFallbacks: Hydra (custom), then vanilla VC helicopters.
-var DefaultHydraModelFallbacks = []int{520, 487, 422, 446}
-
-func mergeHydraModels(primary int, fallbacks []int) []int {
-	if primary <= 0 {
-		primary = HydraModel
+func (e *Engine) hydraModel() int {
+	if e.cfg.HydraModel > 0 {
+		return e.cfg.HydraModel
 	}
-	seen := map[int]bool{primary: true}
-	out := []int{primary}
-	for _, m := range fallbacks {
-		if m <= 0 || seen[m] {
-			continue
-		}
-		seen[m] = true
-		out = append(out, m)
-	}
-	for _, m := range DefaultHydraModelFallbacks {
-		if m <= 0 || seen[m] {
-			continue
-		}
-		seen[m] = true
-		out = append(out, m)
-	}
-	return out
+	return HydraModel
 }
 
-func (e *Engine) hydraVehicleModels() []int {
-	return mergeHydraModels(e.cfg.HydraModel, e.cfg.HydraModelFallbacks)
-}
-
-func createHydraVehicle(api API, models []int, world int, pos Vec3, angle float32) (vehicleID, modelUsed int) {
-	for _, model := range models {
-		vid := api.CreateVehicle(model, world, pos, angle, 1, 1)
-		if vid >= 0 {
-			return vid, model
-		}
-	}
-	return -1, 0
+func createHydraVehicle(api API, model, world int, pos Vec3, angle float32) int {
+	return api.CreateVehicle(model, world, pos, angle, 0, 0)
 }
 
 func testHydraSpawnPos(mapCfg MapConfig, playerPos Vec3) Vec3 {
@@ -57,11 +28,11 @@ func testHydraSpawnPos(mapCfg MapConfig, playerPos Vec3) Vec3 {
 	return Vec3{X: playerPos.X + 6, Y: playerPos.Y + 6, Z: z}
 }
 
-func formatHydraSpawnFailure(api API, models []int) string {
-	msg := fmt.Sprintf("Failed to spawn aircraft (tried models %v).", models)
+func formatHydraSpawnFailure(api API, model int) string {
+	msg := fmt.Sprintf("Failed to spawn Hydra (model %d).", model)
 	if detail := api.LastErrorString(); detail != "" {
 		msg += " " + detail
 	}
-	msg += " Hydra (520) needs custom vehicle files on the server; Maverick (487) is used as fallback when present."
+	msg += " Custom vehicle file must be store/vehicles/v6460_t0_p1_Hydra.7z (see forum.vc-mp.org topic 975)."
 	return msg
 }

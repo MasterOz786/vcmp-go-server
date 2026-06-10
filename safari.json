@@ -11,6 +11,5 @@
   "stunt_bike": true,
   "wallglitch": false,
   "disable_heli_blade_damage": true,
-  "hydra_model": 520,
-  "hydra_model_fallbacks": [487, 422, 446]
+  "hydra_model": 6460
 }

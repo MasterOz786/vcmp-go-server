@@ -6,7 +6,7 @@ const (
 
 	TeamEscort   = 1
 	TeamDefend   = 2
-	HydraModel   = 520
+	HydraModel   = 6460
 	HydraMaxHP   = 1000.0
 
 	HydraCamDefault   = 0

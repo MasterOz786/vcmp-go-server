@@ -1,4 +1,4 @@
-# Build Safari plugin from sibling vcmp-go-plugin and deploy into plugins/.
+# Build Safari plugin and deploy into plugins/.
 param(
     [switch]$StartServer,
     [switch]$NoTest,
@@ -6,16 +6,17 @@ param(
 )
 
 $pluginRoot = Join-Path $PSScriptRoot "..\vcmp-go-plugin"
-$buildScript = Join-Path $pluginRoot "build-safari.ps1"
+$buildScript = Join-Path $pluginRoot "build.ps1"
 
 if (-not (Test-Path $buildScript)) {
     throw "vcmp-go-plugin not found at $pluginRoot"
 }
 
 $params = @{
+    ServerRoot = $PSScriptRoot
     StartServer = $StartServer
 }
-if ($NoTest) { $params.NoTest = $true }
-if ($NoStop) { $params.NoStop = $true }
+if (-not $NoTest) { $params.Test = $true }
+if (-not $NoStop) { $params.StopServer = $true }
 
 & $buildScript @params

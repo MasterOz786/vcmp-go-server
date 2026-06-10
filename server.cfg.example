@@ -3,9 +3,9 @@
 // Base server: Blank Server 64bit (August 2024)
 //   http://files.thijn.ovh/download/9cedd88d75c4d0d76369b772342b4ba9/Blank%20Server%20-%209th%20August,%202024.zip
 //
-// Build the Safari plugin from the sibling plugin repo:
-//   cd ../plugin && make build-windows-safari
-// Copy plugin/plugins/goserver04rel64.dll into the blank server's plugins/ folder.
+// Build the Safari plugin:
+//   cd ../vcmp-go-plugin && .\build.ps1 -Test -StopServer
+// Or from this repo: .\build.ps1
 //
 // Also copy beside the server binary:
 //   goserver.json

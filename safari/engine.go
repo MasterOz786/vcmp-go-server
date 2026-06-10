@@ -236,7 +236,7 @@ func (e *Engine) startRound() {
 	if e.round.State == RoundActive {
 		return
 	}
-	if e.round.Start(e.api, e.mapCfg, e.cfg.RoundMinutes, e.teams, e.marking, e.hydraVehicleModels()) {
+	if e.round.Start(e.api, e.mapCfg, e.cfg.RoundMinutes, e.teams, e.marking, e.hydraModel()) {
 		e.announce(MsgRoundStart, e.round.RoundMinutesStr())
 	}
 }

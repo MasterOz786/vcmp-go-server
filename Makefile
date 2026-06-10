@@ -7,7 +7,7 @@ test:
 tidy:
 	go mod tidy
 
-# Build Safari plugin + deploy to plugins/ (runs ../vcmp-go-plugin/build-safari.ps1).
+# Build Safari plugin + deploy to plugins/ (runs ../vcmp-go-plugin/build.ps1).
 build:
 	powershell -NoProfile -ExecutionPolicy Bypass -File build.ps1
 

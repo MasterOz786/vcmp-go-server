@@ -25,8 +25,7 @@ type Config struct {
 	WallGlitch          bool   `json:"wallglitch"`
 	DisableHeliBladeDmg bool   `json:"disable_heli_blade_damage"`
 	LobbySpawn          *Vec3  `json:"lobby_spawn"`
-	HydraModel          int    `json:"hydra_model"`
-	HydraModelFallbacks []int  `json:"hydra_model_fallbacks"`
+	HydraModel int `json:"hydra_model"`
 }
 
 type MapConfig struct {

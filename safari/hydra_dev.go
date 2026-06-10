@@ -23,16 +23,16 @@ func (e *Engine) cmdTestHydra(playerID int, args []string) CommandResult {
 
 	e.stopTestHydra(playerID)
 
-	models := e.hydraVehicleModels()
+	model := e.hydraModel()
 	pos := testHydraSpawnPos(e.mapCfg, e.api.PlayerPosition(playerID))
 	world := e.mapCfg.World
 	if e.api.IsConnected(playerID) {
 		world = e.api.PlayerWorld(playerID)
 	}
 
-	vid, modelUsed := createHydraVehicle(e.api, models, world, pos, e.mapCfg.HydraAngle)
+	vid := createHydraVehicle(e.api, model, world, pos, e.mapCfg.HydraAngle)
 	if vid < 0 {
-		e.api.Send(playerID, ColourRed, formatHydraSpawnFailure(e.api, models))
+		e.api.Send(playerID, ColourRed, formatHydraSpawnFailure(e.api, model))
 		return CommandResult{Handled: true, Deny: true}
 	}
 	e.api.SetVehicleHealth(vid, HydraMaxHP)
@@ -53,16 +53,9 @@ func (e *Engine) cmdTestHydra(playerID int, args []string) CommandResult {
 	e.api.PutPlayerInVehicle(playerID, vid, 0)
 	e.resetHydraCamera(playerID)
 
-	label := "Hydra"
-	if modelUsed != HydraModel {
-		label = fmt.Sprintf("aircraft (model %d)", modelUsed)
-	}
-	e.api.Send(playerID, ColourGreen, fmt.Sprintf("Test %s ready — you are in the pilot seat.", label))
+	e.api.Send(playerID, ColourGreen, "Test Hydra ready — you are in the pilot seat.")
 	e.api.Send(playerID, ColourCyan, "Press V or /hydraview to cycle camera views.")
-	if modelUsed != HydraModel {
-		e.api.Send(playerID, ColourYellow, "Using fallback helicopter — add Hydra (520) custom vehicle pack for the real Hydra.")
-	}
-	e.api.Log(fmt.Sprintf("[safari] test hydra spawned for player %d vehicle=%d model=%d", playerID, vid, modelUsed))
+	e.api.Log(fmt.Sprintf("[safari] test hydra spawned for player %d vehicle=%d model=%d", playerID, vid, model))
 	return CommandResult{Handled: true, Deny: true}
 }
 
