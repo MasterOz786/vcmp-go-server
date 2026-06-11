@@ -1,0 +1,16 @@
+Packets <- {
+	"REGISTER": 59,
+	"SHOW_REGISTER": 60,
+	"HIDE_REGISTER": 61,
+	"REQUEST_REGISTER_UI": 94,
+	"HYDRA_CAM": 95,
+	"HYDRA_CAM_HELLO": 96,
+};
+
+HydraCam <- {
+	"OFF": -1,
+	"DEFAULT": 0,
+	"CHASE": 1,
+	"SIDE": 2,
+	"TACTICAL": 3,
+};

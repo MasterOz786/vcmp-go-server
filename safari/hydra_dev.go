@@ -51,6 +51,7 @@ func (e *Engine) cmdTestHydra(playerID int, args []string) CommandResult {
 	}
 
 	e.api.PutPlayerInVehicle(playerID, vid, 0)
+	warnHydraModelMismatch(e.api, playerID, vid, model)
 	e.syncHydraCamera(playerID, vid)
 	e.warnIfNoClientScript(playerID)
 

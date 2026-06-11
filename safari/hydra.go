@@ -41,6 +41,7 @@ func (h *Hydra) Spawn(api API, mapCfg MapConfig, model int) int {
 	h.VehicleID = createHydraVehicle(api, model, mapCfg.World, pos, mapCfg.HydraAngle)
 	if h.VehicleID >= 0 {
 		api.SetVehicleHealth(h.VehicleID, HydraMaxHP)
+		warnHydraModelMismatch(api, -1, h.VehicleID, model)
 		h.State = HydraPatrol
 	} else {
 		h.State = HydraIdle

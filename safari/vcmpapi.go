@@ -99,6 +99,10 @@ func (VCMPAPI) VehiclePos(vehicleID int) Vec3 {
 	return toSafariVec3(vcmp.API.Vehicle.Position(vehicleID))
 }
 
+func (VCMPAPI) VehicleModel(vehicleID int) int {
+	return vcmp.API.Vehicle.Model(vehicleID)
+}
+
 func (VCMPAPI) VehicleRotationEuler(vehicleID int) Vec3 {
 	rot, err := vcmp.API.Vehicle.RotationEuler(vehicleID)
 	if err != nil {

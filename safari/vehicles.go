@@ -2,6 +2,8 @@ package safari
 
 import "fmt"
 
+const hydraVehicleArchive = "store/vehicles/v6460_t0_p1_Hydra.7z"
+
 func (e *Engine) hydraModel() int {
 	if e.cfg.HydraModel > 0 {
 		return e.cfg.HydraModel
@@ -33,6 +35,24 @@ func formatHydraSpawnFailure(api API, model int) string {
 	if detail := api.LastErrorString(); detail != "" {
 		msg += " " + detail
 	}
-	msg += " Custom vehicle file must be store/vehicles/v6460_t0_p1_Hydra.7z (see forum.vc-mp.org topic 975)."
+	msg += " Custom vehicle file must be " + hydraVehicleArchive + " (see forum.vc-mp.org topic 975)."
 	return msg
+}
+
+func warnHydraModelMismatch(api API, playerID, vehicleID, expectedModel int) {
+	if vehicleID < 0 {
+		return
+	}
+	actual := api.VehicleModel(vehicleID)
+	if actual == expectedModel {
+		return
+	}
+	msg := fmt.Sprintf(
+		"Hydra spawned as model %d (expected %d). Install %s and reconnect — otherwise it flies like a Maverick.",
+		actual, expectedModel, hydraVehicleArchive,
+	)
+	api.Log(fmt.Sprintf("[safari] WARNING player %d vehicle %d: %s", playerID, vehicleID, msg))
+	if playerID >= 0 && api.IsConnected(playerID) {
+		api.Send(playerID, ColourRed, msg)
+	}
 }

@@ -62,6 +62,11 @@ func (e *Engine) OnServerStart() {
 	} else {
 		e.api.Log("[safari] store/script/main.nut found — clients download it on connect (F8 shows load message)")
 	}
+	if _, err := os.Stat(hydraVehicleArchive); err != nil {
+		e.api.Log("[safari] WARNING: " + hydraVehicleArchive + " not found — Hydra will spawn as a default helicopter until you add the custom vehicle")
+	} else {
+		e.api.Log("[safari] custom Hydra vehicle found at " + hydraVehicleArchive)
+	}
 	e.api.Log("[safari] server ready — Project Safari: Hydra Warfare (direct callbacks)")
 	e.announce(MsgServerReady)
 }

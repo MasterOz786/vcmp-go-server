@@ -34,6 +34,7 @@ type API interface {
 	CreateVehicle(model, world int, pos Vec3, angle float32, c1, c2 int) int
 	DeleteVehicle(vehicleID int)
 	VehiclePos(vehicleID int) Vec3
+	VehicleModel(vehicleID int) int
 	VehicleRotationEuler(vehicleID int) Vec3
 	VehicleHealth(vehicleID int) float32
 	SetVehiclePosition(vehicleID int, pos Vec3)
