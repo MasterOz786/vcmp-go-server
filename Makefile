@@ -1,4 +1,4 @@
-.PHONY: test tidy build build-start
+.PHONY: test tidy build build-start hotreload dev-watch
 
 # Gamemode library tests (this repo only).
 test:
@@ -14,3 +14,11 @@ build:
 # Same as build, then start server64.exe.
 build-start:
 	powershell -NoProfile -ExecutionPolicy Bypass -File build.ps1 -StartServer
+
+# Rebuild plugin and restart server64 (same as /reload server, from shell).
+hotreload:
+	powershell -NoProfile -ExecutionPolicy Bypass -File tools/hotreload.ps1 -WaitSeconds 0
+
+# Auto-rebuild on Go source changes (requires: brew install fswatch).
+dev-watch:
+	bash tools/dev-watch.sh

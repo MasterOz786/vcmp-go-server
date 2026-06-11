@@ -9,6 +9,8 @@ type API interface {
 	IsConnected(playerID int) bool
 	IsSpawned(playerID int) bool
 	IsAdmin(playerID int) bool
+	Kick(playerID int) error
+	Shutdown()
 	PlayerName(playerID int) string
 	PlayerIDFromName(name string) int
 	PlayerUID(playerID int) string

@@ -115,6 +115,8 @@ func (e *Engine) HandleCommand(playerID int, raw string) CommandResult {
 		return CommandResult{Handled: true, Deny: true}
 	case "/wep":
 		return e.cmdWep(playerID, args)
+	case "/reload":
+		return e.cmdReload(playerID, args)
 	default:
 		if strings.HasPrefix(name, "/") && len(name) > 1 {
 			e.api.Send(playerID, ColourYellow, "Unknown command. Try /help")
@@ -142,6 +144,9 @@ func (e *Engine) sendHelp(playerID int) {
 		"/pausesafari — admin: pause/resume round",
 		"/autostart on|off — admin: toggle autostart",
 		"/wep <id> [ammo] — admin: give weapon",
+		"/reload — admin: reload config/map from disk",
+		"/reload scripts — admin: kick all (refresh client script)",
+		"/reload server — admin: rebuild plugin and restart server",
 	}
 	for _, l := range lines {
 		e.api.Send(playerID, ColourWhite, l)
@@ -274,6 +279,39 @@ func (e *Engine) cmdGetPos(playerID int, args []string) {
 		"%s position: %.2f, %.2f, %.2f",
 		label, pos.X, pos.Y, pos.Z,
 	))
+}
+
+func (e *Engine) cmdReload(playerID int, args []string) CommandResult {
+	if !e.isAdmin(playerID) {
+		e.api.Send(playerID, ColourRed, "Admin only.")
+		return CommandResult{Handled: true, Deny: true}
+	}
+
+	target := "config"
+	if len(args) > 0 {
+		target = strings.ToLower(args[0])
+	}
+
+	switch target {
+	case "config", "cfg", "map":
+		if err := e.ReloadFromDisk(); err != nil {
+			e.api.Send(playerID, ColourRed, "Reload failed: "+err.Error())
+			return CommandResult{Handled: true, Deny: true}
+		}
+		e.api.Broadcast(ColourCyan, "Safari config/map reloaded.")
+		e.api.Send(playerID, ColourGreen, "Reloaded safari.json and map from disk.")
+	case "scripts", "script", "client":
+		e.api.Broadcast(ColourYellow, "Client scripts updated — reconnect to reload.")
+		e.reloadClientScripts(playerID)
+	case "server", "restart":
+		e.api.Broadcast(ColourYellow, "Server reloading — reconnect in a few seconds.")
+		e.api.Log("[safari] hot reload requested by " + e.api.PlayerName(playerID))
+		e.scheduleServerHotReload()
+		e.api.Send(playerID, ColourGreen, "Server restart scheduled.")
+	default:
+		e.api.Send(playerID, ColourYellow, "Usage: /reload [config|scripts|server]")
+	}
+	return CommandResult{Handled: true, Deny: true}
 }
 
 func (e *Engine) cmdWep(playerID int, args []string) CommandResult {

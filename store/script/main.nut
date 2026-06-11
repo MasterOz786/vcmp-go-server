@@ -17,6 +17,31 @@ streams <- StreamsController(windows, sprites);
 clicks <- ClickHandler(windows);
 packsKey <- null;
 
+function Script::ScriptUnload() {
+	if (packsKey != null) {
+		packsKey = null;
+	}
+	if (SafariHydraCam.hydraKey != null) {
+		SafariHydraCam.hydraKey = null;
+	}
+	if (sprites != null) {
+		sprites.hidePacksSprite();
+	}
+	if (windows != null) {
+		if (windows.packsWindow != null) {
+			windows.packsWindow.clear();
+		}
+		if (windows.roundScoreboard != null) {
+			windows.roundScoreboard.hide();
+		}
+		if (windows.registerWindow != null) {
+			windows.registerWindow.clear();
+		}
+	}
+	Timer.Timers.clear();
+	GUI.SetMouseEnabled(false);
+}
+
 function Script::ScriptLoad() {
 	SafariHydraCam.init();
 	SafariHydraCam.sendHello();
