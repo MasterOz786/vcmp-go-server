@@ -12,6 +12,6 @@ class WindowsController {
 		this.res = res;
 		this.registerWindow = RegisterWindow(res);
 		this.packsWindow = PacksWindow(res);
-		this.roundScoreboard = RoundScoreboardWindow(res);
+		this.roundScoreboard = RoundScoreboardController(res);
 	}
 }

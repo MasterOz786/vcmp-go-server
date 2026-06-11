@@ -3,6 +3,7 @@ dofile("utils/PackDefinitions.nut");
 dofile("utils/Timers.nut");
 dofile("HydraCamera.nut");
 dofile("ScoreboardHUD.nut");
+dofile("SpritesController.nut");
 dofile("WindowsController.nut");
 dofile("StreamsController.nut");
 dofile("ClickHandler.nut");
@@ -10,8 +11,9 @@ dofile("ClickHandler.nut");
 local screen = GUI.GetScreenSize();
 scoreboard <- ScoreboardHUD;
 scoreboard.init(screen);
+sprites <- SpritesController(screen);
 windows <- WindowsController(screen);
-streams <- StreamsController(windows);
+streams <- StreamsController(windows, sprites);
 clicks <- ClickHandler(windows);
 packsKey <- null;
 
@@ -44,6 +46,7 @@ function GUI::InputReturn(editbox) {
 function GUI::GameResize(width, height) {
 	local v = VectorScreen(width, height);
 	scoreboard.onResize(v);
+	sprites.updatePositions(v);
 	windows.packsWindow.updatePositions(v);
 	windows.roundScoreboard.onResize(v);
 	windows.registerWindow.updatePositions(v);
@@ -64,6 +67,7 @@ function KeyBind::OnDown(bind) {
 			return;
 		}
 		if (windows.packsWindow.canvas != null) {
+			sprites.hidePacksSprite();
 			windows.packsWindow.clear();
 			return;
 		}

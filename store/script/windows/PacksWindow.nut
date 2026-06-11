@@ -1,9 +1,8 @@
 class PacksWindow {
-	static COL_HEADER = Colour(255, 140, 0);
-	static COL_BG = Colour(10, 10, 10);
-	static COL_TITLE = Colour(255, 255, 255);
-	static COL_WEAPONS = Colour(230, 230, 230);
-	static COL_SELECT = Colour(240, 175, 238);
+	static COL_SELECTED = Colour(240, 175, 238);
+	static PACK_COUNT = 3;
+	static CANVAS_W = 370;
+	static CANVAS_H = 200;
 
 	canvas = null;
 	res = null;
@@ -36,70 +35,29 @@ class PacksWindow {
 		this.team = team;
 		this.currentPack = currentPack;
 
-		local packW = 200;
-		local packH = 170;
-		local gap = 16;
-		local totalW = packW * 3 + gap * 2;
-		local startX = (this.res.X / 2) - (totalW / 2);
-		local startY = (this.res.Y / 2) - 90;
+		this.statusLabel = GUILabel(VectorScreen(0, 93), COL_SELECTED, "");
+		this.statusLabel.FontSize = 16;
+		this.statusLabel.Size = VectorScreen(CANVAS_W - 67, 200);
+		this.statusLabel.TextAlignment = GUI_ALIGN_CENTERH;
+		this.statusLabel.FontFlags = GUI_FFLAG_OUTLINE | GUI_FFLAG_BOLD;
 
 		this.canvas = GUICanvas();
-		this.canvas.Position = VectorScreen(startX - 20, startY - 60);
-		this.canvas.Size = VectorScreen(totalW + 40, packH + 110);
-
-		local title = GUILabel(VectorScreen(20, 0), COL_TITLE, "SELECT YOUR WEAPON PACK");
-		title.FontSize = 22;
-		title.Size = VectorScreen(totalW, 30);
-		title.TextAlignment = GUI_ALIGN_CENTERH;
-		title.FontFlags = GUI_FFLAG_OUTLINE | GUI_FFLAG_BOLD;
-		this.canvas.AddChild(title);
-
-		this.statusLabel = GUILabel(VectorScreen(20, 28), Colour(255, 200, 120), "");
-		this.statusLabel.FontSize = 13;
-		this.statusLabel.Size = VectorScreen(totalW, 20);
-		this.statusLabel.TextAlignment = GUI_ALIGN_CENTERH;
+		this.canvas.Position = VectorScreen((res.X / 2) - (CANVAS_W / 2), (res.Y / 2) - (100 / 2) + 30);
+		this.canvas.Size = VectorScreen(CANVAS_W, CANVAS_H);
 		this.canvas.AddChild(this.statusLabel);
 
-		local closeHint = GUILabel(VectorScreen(totalW - 70, packH + 72), COL_TITLE, "P Close");
-		closeHint.FontSize = 12;
-		closeHint.FontFlags = GUI_FFLAG_OUTLINE;
-		this.canvas.AddChild(closeHint);
-
-		local packs = packListForTeam(team);
-		for (local i = 0; i < packs.len(); i++) {
-			local px = 20 + i * (packW + gap);
-			local py = 52;
-			local packNum = i + 1;
-			local info = packs[i];
-
-			local panel = GUICanvas();
-			panel.Position = VectorScreen(px, py);
-			panel.Size = VectorScreen(packW, packH);
-
-			local header = GUILabel(VectorScreen(0, 0), COL_HEADER, info.title);
-			header.Size = VectorScreen(packW, 26);
-			header.TextAlignment = GUI_ALIGN_CENTERH | GUI_ALIGN_CENTERV;
-			header.FontFlags = GUI_FFLAG_BOLD;
-			header.FontSize = 14;
-			panel.AddChild(header);
-
-			local weapons = GUILabel(VectorScreen(8, 34), COL_WEAPONS, info.weapons);
-			weapons.Size = VectorScreen(packW - 16, 80);
-			weapons.FontSize = 12;
-			weapons.FontFlags = GUI_FFLAG_OUTLINE;
-			weapons.AddFlags(GUI_FLAG_WRAP);
-			panel.AddChild(weapons);
-
-			local btn = GUIButton(VectorScreen(40, packH - 34), VectorScreen(120, 26), COL_SELECT, "pack" + packNum);
+		local hSpace = 10;
+		for (local i = 1; i <= PACK_COUNT; i++) {
+			local btn = GUIButton(VectorScreen(hSpace, 10), VectorScreen(45, 26), COL_SELECTED, "pack" + i);
 			btn.TextColour = Colour(0, 0, 0);
+			btn.FontName = "Verdana";
 			btn.FontFlags = GUI_FFLAG_BOLD;
-			if (packNum == currentPack) {
-				btn.Text = "pack" + packNum + " *";
+			if (i == currentPack) {
+				btn.Text = "pack" + i + " *";
 			}
-			panel.AddChild(btn);
+			hSpace += 51;
+			this.canvas.AddChild(btn);
 			this.packButtons.append(btn);
-
-			this.canvas.AddChild(panel);
 		}
 
 		GUI.SetMouseEnabled(true);
@@ -108,7 +66,7 @@ class PacksWindow {
 	function updatePositions(res) {
 		this.res = res;
 		if (this.canvas != null) {
-			this.clear();
+			this.canvas.Position = VectorScreen((res.X / 2) - (CANVAS_W / 2), (res.Y / 2) - (100 / 2) + 30);
 		}
 	}
 

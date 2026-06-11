@@ -1,8 +1,10 @@
 class StreamsController {
 	windows = null;
+	sprites = null;
 
-	constructor(windows) {
+	constructor(windows, sprites) {
 		this.windows = windows;
+		this.sprites = sprites;
 	}
 
 	function process(stream) {
@@ -31,8 +33,10 @@ class StreamsController {
 		} else if (type == Packets.SHOW_PACKS) {
 			local team = stream.ReadInt();
 			local currentPack = stream.ReadInt();
+			sprites.showPacksSprite();
 			windows.packsWindow.createWindow(team, currentPack);
 		} else if (type == Packets.HIDE_PACKS) {
+			sprites.hidePacksSprite();
 			windows.packsWindow.clear();
 		} else if (type == Packets.ROUND_END_STATS) {
 			local winnerTeam = stream.ReadInt();
@@ -54,6 +58,8 @@ class StreamsController {
 					deaths = stream.ReadInt(),
 				});
 			}
+			sprites.hidePacksSprite();
+			windows.packsWindow.clear();
 			windows.roundScoreboard.show(winnerTeam, escortScore, defendScore, reason, players);
 		}
 	}

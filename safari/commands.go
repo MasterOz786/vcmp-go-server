@@ -40,7 +40,7 @@ func (e *Engine) HandleCommand(playerID int, raw string) CommandResult {
 		e.sendHelp(playerID)
 		return CommandResult{Handled: true, Deny: true}
 	case "/startsafari":
-		if !e.api.IsAdmin(playerID) {
+		if !e.isAdmin(playerID) {
 			e.api.Send(playerID, ColourRed, "Admin only.")
 			return CommandResult{Handled: true, Deny: true}
 		}
@@ -51,7 +51,7 @@ func (e *Engine) HandleCommand(playerID int, raw string) CommandResult {
 		e.startRound()
 		return CommandResult{Handled: true, Deny: true}
 	case "/stopsafari":
-		if !e.api.IsAdmin(playerID) {
+		if !e.isAdmin(playerID) {
 			e.api.Send(playerID, ColourRed, "Admin only.")
 			return CommandResult{Handled: true, Deny: true}
 		}
@@ -60,7 +60,7 @@ func (e *Engine) HandleCommand(playerID int, raw string) CommandResult {
 		}
 		return CommandResult{Handled: true, Deny: true}
 	case "/pausesafari":
-		if !e.api.IsAdmin(playerID) {
+		if !e.isAdmin(playerID) {
 			e.api.Send(playerID, ColourRed, "Admin only.")
 			return CommandResult{Handled: true, Deny: true}
 		}
@@ -71,7 +71,7 @@ func (e *Engine) HandleCommand(playerID int, raw string) CommandResult {
 		e.TogglePause()
 		return CommandResult{Handled: true, Deny: true}
 	case "/autostart":
-		if !e.api.IsAdmin(playerID) {
+		if !e.isAdmin(playerID) {
 			e.api.Send(playerID, ColourRed, "Admin only.")
 			return CommandResult{Handled: true, Deny: true}
 		}
@@ -277,7 +277,7 @@ func (e *Engine) cmdGetPos(playerID int, args []string) {
 }
 
 func (e *Engine) cmdWep(playerID int, args []string) CommandResult {
-	if !e.api.IsAdmin(playerID) {
+	if !e.isAdmin(playerID) {
 		e.api.Send(playerID, ColourRed, "Admin only.")
 		return CommandResult{Handled: true, Deny: true}
 	}
