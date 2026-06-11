@@ -8,7 +8,7 @@ SafariHydraCam <- {
 	names = ["Pilot (default)", "Chase cam", "Side orbit", "Tactical overhead"],
 
 	function init() {
-		this.hydraKey = KeyBind(0x48); // H — also registered server-side as bind 4
+		this.hydraKey = KeyBind(0x48); // H — client only; server applies camera on HYDRA_CAM_CYCLE packet
 		print("[safari] client ready — H cycles Hydra camera via server");
 	},
 

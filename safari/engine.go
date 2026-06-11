@@ -460,8 +460,6 @@ func (e *Engine) OnPlayerKeyBind(playerID, bindID int, released bool) {
 		_ = e.HandleCommand(playerID, "/pack 2")
 	case 3:
 		_ = e.HandleCommand(playerID, "/pack 3")
-	case 4:
-		e.cycleHydraCamera(playerID)
 	}
 }
 
