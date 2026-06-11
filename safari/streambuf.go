@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"math"
 )
 
 // StreamBuf encodes/decodes VC:MP client script streams (little-endian ints,
@@ -24,6 +25,12 @@ func NewStreamReader(data []byte) *StreamBuf {
 func (s *StreamBuf) WriteInt(v int32) {
 	var b [4]byte
 	binary.LittleEndian.PutUint32(b[:], uint32(v))
+	s.data = append(s.data, b[:]...)
+}
+
+func (s *StreamBuf) WriteFloat(v float32) {
+	var b [4]byte
+	binary.LittleEndian.PutUint32(b[:], uint32(math.Float32bits(v)))
 	s.data = append(s.data, b[:]...)
 }
 
@@ -49,6 +56,15 @@ func (s *StreamBuf) ReadInt() (int32, error) {
 	v := binary.LittleEndian.Uint32(s.data[s.pos:])
 	s.pos += 4
 	return int32(v), nil
+}
+
+func (s *StreamBuf) ReadFloat() (float32, error) {
+	if s.pos+4 > len(s.data) {
+		return 0, io.EOF
+	}
+	bits := binary.LittleEndian.Uint32(s.data[s.pos:])
+	s.pos += 4
+	return math.Float32frombits(bits), nil
 }
 
 func (s *StreamBuf) ReadString() (string, error) {

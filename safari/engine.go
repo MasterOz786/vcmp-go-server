@@ -485,11 +485,6 @@ func (e *Engine) HandleRequestClass(playerID, classIndex int) bool {
 	return e.teams.AllowClassRequest(playerID, classIndex, e.round.State == RoundActive)
 }
 
-func (e *Engine) HandleCommandSync(playerID int, cmd string) bool {
-	res := e.HandleCommand(playerID, cmd)
-	return res.Deny
-}
-
 func (e *Engine) TogglePause() bool {
 	paused := e.round.TogglePause()
 	if paused {
