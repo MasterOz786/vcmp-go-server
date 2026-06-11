@@ -18,4 +18,5 @@ const (
 	PacketHidePacks            = 101 // server → client close pack picker
 	PacketRoundEndStats        = 102 // server → client end-of-round scoreboard
 	PacketRequestShowPacks     = 103 // client → server open pack picker (P key)
+	PacketLobbyLeaderboard     = 104 // server → client 3D lobby leaderboard boards
 )

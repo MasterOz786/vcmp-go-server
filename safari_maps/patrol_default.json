@@ -1,4 +1,5 @@
 {
+  "lobby_spawn": { "x": 500, "y": 20, "z": 11.2 },
   "hydra_start": { "x": -1180, "y": 45, "z": 14.5 },
   "hydra_angle": 90,
   "world": 0,

@@ -63,7 +63,15 @@ func (e *Engine) handleRequestShowPacks(playerID int) {
 	e.SendShowPacks(playerID)
 }
 
-func (e *Engine) BroadcastRoundEndStats(winnerTeam int, reason string) {
+type roundEndPlayer struct {
+	name   string
+	team   int
+	points int
+	kills  int
+	deaths int
+}
+
+func (e *Engine) roundEndPlayers() []roundEndPlayer {
 	escortN, defendN := 0, 0
 	for _, id := range e.teams.ConnectedIDs() {
 		if !e.api.IsConnected(id) {
@@ -84,13 +92,7 @@ func (e *Engine) BroadcastRoundEndStats(winnerTeam int, reason string) {
 		defendShare = e.round.Score.DefendScore / defendN
 	}
 
-	var players []struct {
-		name   string
-		team   int
-		points int
-		kills  int
-		deaths int
-	}
+	var players []roundEndPlayer
 	for _, id := range e.teams.ConnectedIDs() {
 		if !e.api.IsConnected(id) {
 			continue
@@ -103,13 +105,7 @@ func (e *Engine) BroadcastRoundEndStats(winnerTeam int, reason string) {
 		if s.Team == TeamDefend {
 			pts = defendShare
 		}
-		players = append(players, struct {
-			name   string
-			team   int
-			points int
-			kills  int
-			deaths int
-		}{
+		players = append(players, roundEndPlayer{
 			name:   e.api.PlayerName(id),
 			team:   s.Team,
 			points: pts,
@@ -117,7 +113,11 @@ func (e *Engine) BroadcastRoundEndStats(winnerTeam int, reason string) {
 			deaths: s.RoundDeaths,
 		})
 	}
+	return players
+}
 
+func (e *Engine) buildRoundEndStatsPayload(winnerTeam int, reason string) []byte {
+	players := e.roundEndPlayers()
 	s := NewStreamWriter()
 	s.WriteInt(PacketRoundEndStats)
 	s.WriteInt(int32(winnerTeam))
@@ -132,8 +132,42 @@ func (e *Engine) BroadcastRoundEndStats(winnerTeam int, reason string) {
 		s.WriteInt(int32(p.kills))
 		s.WriteInt(int32(p.deaths))
 	}
+	return s.Bytes()
+}
 
-	payload := s.Bytes()
+func (e *Engine) roundEndWinnerAndReason() (int, string) {
+	switch e.round.State {
+	case RoundActive:
+		return e.round.Score.WinnerByScore(), "Current standings"
+	case RoundEnded:
+		if e.round.WinnerTeam != 0 {
+			return e.round.WinnerTeam, e.round.EndReason
+		}
+		return e.round.Score.WinnerByScore(), e.round.EndReason
+	default:
+		return TeamEscort, "Waiting for round start"
+	}
+}
+
+func (e *Engine) SendRoundEndStatsTo(playerID int, winnerTeam int, reason string) {
+	if !e.api.IsConnected(playerID) {
+		return
+	}
+	_ = e.api.SendScriptData(playerID, e.buildRoundEndStatsPayload(winnerTeam, reason))
+}
+
+func (e *Engine) SendHideRoundStatsTo(playerID int) {
+	if !e.api.IsConnected(playerID) {
+		return
+	}
+	s := NewStreamWriter()
+	s.WriteInt(PacketRoundEndStats)
+	s.WriteInt(-1)
+	_ = e.api.SendScriptData(playerID, s.Bytes())
+}
+
+func (e *Engine) BroadcastRoundEndStats(winnerTeam int, reason string) {
+	payload := e.buildRoundEndStatsPayload(winnerTeam, reason)
 	for _, playerID := range e.teams.ConnectedIDs() {
 		if e.api.IsConnected(playerID) {
 			_ = e.api.SendScriptData(playerID, payload)
@@ -142,13 +176,9 @@ func (e *Engine) BroadcastRoundEndStats(winnerTeam int, reason string) {
 }
 
 func (e *Engine) BroadcastHideRoundStats() {
-	s := NewStreamWriter()
-	s.WriteInt(PacketRoundEndStats)
-	s.WriteInt(-1) // hide signal
-	payload := s.Bytes()
 	for _, playerID := range e.teams.ConnectedIDs() {
 		if e.api.IsConnected(playerID) {
-			_ = e.api.SendScriptData(playerID, payload)
+			e.SendHideRoundStatsTo(playerID)
 		}
 	}
 }

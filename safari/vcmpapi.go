@@ -101,6 +101,10 @@ func (VCMPAPI) CreateVehicle(model, world int, pos Vec3, angle float32, c1, c2 i
 
 func (VCMPAPI) DeleteVehicle(vehicleID int) { vcmp.API.Vehicle.Delete(vehicleID) }
 
+func (VCMPAPI) VehicleExists(vehicleID int) bool {
+	return vcmp.API.Vehicle.Exists(vehicleID)
+}
+
 func (VCMPAPI) VehiclePos(vehicleID int) Vec3 {
 	return toSafariVec3(vcmp.API.Vehicle.Position(vehicleID))
 }

@@ -31,6 +31,9 @@ function Script::ScriptUnload() {
 		if (windows.packsWindow != null) {
 			windows.packsWindow.clear();
 		}
+		if (windows.lobbyLeaderboard != null) {
+			windows.lobbyLeaderboard.hide();
+		}
 		if (windows.roundScoreboard != null) {
 			windows.roundScoreboard.hide();
 		}
@@ -74,6 +77,7 @@ function GUI::GameResize(width, height) {
 	sprites.updatePositions(v);
 	windows.packsWindow.updatePositions(v);
 	windows.roundScoreboard.onResize(v);
+	windows.lobbyLeaderboard.onResize(v);
 	windows.registerWindow.updatePositions(v);
 }
 
@@ -87,8 +91,12 @@ function KeyBind::OnDown(bind) {
 		return;
 	}
 	if (packsKey != null && bind == packsKey) {
+		if (windows.lobbyLeaderboard.visible) {
+			windows.lobbyLeaderboard.hideOverlay();
+			return;
+		}
 		if (windows.roundScoreboard.visible) {
-			windows.roundScoreboard.hide();
+			windows.roundScoreboard.hideBanner();
 			return;
 		}
 		if (windows.packsWindow.canvas != null) {

@@ -11,6 +11,7 @@ type PlayerSession struct {
 	ClientScriptReady   bool
 	RoundKills          int
 	RoundDeaths         int
+	LeaderboardVisible  bool
 }
 
 func newPlayerSession(team, pack int) *PlayerSession {

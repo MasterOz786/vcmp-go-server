@@ -52,6 +52,10 @@ func (e *Engine) configureServer() {
 	e.api.SetServerOption(int(ServerOptionWallGlitch), e.cfg.WallGlitch)
 	e.api.SetServerOption(int(ServerOptionDisableHeliBladeDamage), e.cfg.DisableHeliBladeDmg)
 	e.teams.SetupClasses(e.api, e.mapCfg)
+	lobby := e.cfg.LobbyPosition(e.mapCfg)
+	if lobby.X != 0 || lobby.Y != 0 || lobby.Z != 0 {
+		e.api.SetSpawnPos(lobby)
+	}
 }
 
 func (e *Engine) OnServerStart() {
@@ -69,6 +73,9 @@ func (e *Engine) OnServerStart() {
 		e.api.Log("[safari] custom Hydra vehicle found at " + hydraVehicleArchive)
 	}
 	e.api.Log("[safari] server ready — Project Safari: Hydra Warfare (direct callbacks)")
+	go func() {
+		e.refreshLeaderboardCache()
+	}()
 	e.announce(MsgServerReady)
 }
 
@@ -197,6 +204,10 @@ func (e *Engine) endRound(winnerTeam int, reason string) {
 	e.announce(MsgRoundEnd, colour, teamName, reason,
 		strItoa(e.round.Score.EscortScore), strItoa(e.round.Score.DefendScore))
 	e.persistRound(winnerTeam)
+	go func() {
+		e.refreshLeaderboardCache()
+		e.BroadcastLobbyLeaderboardWorld()
+	}()
 	e.BroadcastScoreboard()
 	for _, id := range e.teams.ConnectedIDs() {
 		if uid := e.api.PlayerUID(id); uid != "" {
@@ -381,6 +392,12 @@ func (e *Engine) OnConnect(playerID int) {
 			_ = e.api.SetPlayerPosition(playerID, lobby)
 		}
 	}
+	mode := LobbyLeaderboardWorldOnly
+	if sess := e.teams.session(playerID); sess != nil && sess.LeaderboardVisible {
+		mode = LobbyLeaderboardWithOverlay
+	}
+	e.SendLobbyLeaderboard(playerID, mode)
+
 }
 
 func (e *Engine) maybePromptRegistration(playerID int, uid string) {

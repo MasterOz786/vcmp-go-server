@@ -31,6 +31,7 @@ type Config struct {
 }
 
 type MapConfig struct {
+	LobbySpawn   *Vec3  `json:"lobby_spawn"`
 	HydraStart   Vec3   `json:"hydra_start"`
 	HydraAngle   float32 `json:"hydra_angle"`
 	World        int    `json:"world"`
@@ -111,6 +112,9 @@ func LoadMap(path string) (MapConfig, error) {
 func (c Config) LobbyPosition(mapCfg MapConfig) Vec3 {
 	if c.LobbySpawn != nil {
 		return *c.LobbySpawn
+	}
+	if mapCfg.LobbySpawn != nil {
+		return *mapCfg.LobbySpawn
 	}
 	if len(mapCfg.EscortSpawns) > 0 {
 		return mapCfg.EscortSpawns[0]

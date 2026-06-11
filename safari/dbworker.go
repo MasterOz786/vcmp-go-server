@@ -94,6 +94,29 @@ func (j prefetchRegisteredJob) Run(store *Store) error {
 	return nil
 }
 
+type refreshLeaderboardJob struct {
+	w    *DBWorker
+	done chan struct{}
+}
+
+func (j refreshLeaderboardJob) Run(store *Store) error {
+	escort, err := store.TopEscortLeaderboard(10)
+	if err != nil {
+		log.Printf("[safari-db] escort leaderboard query failed: %v", err)
+		escort = nil
+	}
+	defend, err := store.TopDefendLeaderboard(10)
+	if err != nil {
+		log.Printf("[safari-db] defend leaderboard query failed: %v", err)
+		defend = nil
+	}
+	j.w.setLeaderboards(escort, defend)
+	if j.done != nil {
+		close(j.done)
+	}
+	return nil
+}
+
 type DBWorker struct {
 	store  *Store
 	jobs   chan DBJob
@@ -104,6 +127,9 @@ type DBWorker struct {
 	packCache       map[string]int
 	statsCache      map[string]PlayerStats
 	registeredCache map[string]bool
+	escortLB        []LeaderboardEntry
+	defendLB        []LeaderboardEntry
+	lbReady         bool
 }
 
 func NewDBWorker(store *Store, queueSize int) *DBWorker {
@@ -249,6 +275,29 @@ func (w *DBWorker) RegisterAccount(uid, name, passwordHash string) error {
 	}
 	w.setCachedRegistered(uid, true)
 	return nil
+}
+
+func (w *DBWorker) setLeaderboards(escort, defend []LeaderboardEntry) {
+	w.mu.Lock()
+	w.escortLB = escort
+	w.defendLB = defend
+	w.lbReady = true
+	w.mu.Unlock()
+}
+
+func (w *DBWorker) Leaderboards() (escort, defend []LeaderboardEntry, ok bool) {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+	if !w.lbReady {
+		return nil, nil, false
+	}
+	return w.escortLB, w.defendLB, true
+}
+
+func (w *DBWorker) RefreshLeaderboardsAsync() <-chan struct{} {
+	done := make(chan struct{})
+	w.Enqueue(refreshLeaderboardJob{w: w, done: done})
+	return done
 }
 
 func (w *DBWorker) Stop() {

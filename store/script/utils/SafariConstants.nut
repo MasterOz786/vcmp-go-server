@@ -12,6 +12,7 @@ Packets <- {
 	"HIDE_PACKS": 101,
 	"ROUND_END_STATS": 102,
 	"REQUEST_SHOW_PACKS": 103,
+	"LOBBY_LEADERBOARD": 104,
 };
 
 HydraCam <- {

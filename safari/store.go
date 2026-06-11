@@ -115,6 +115,41 @@ func (s *Store) UpsertPlayer(uid, name string) error {
 	return err
 }
 
+func (s *Store) TopEscortLeaderboard(limit int) ([]LeaderboardEntry, error) {
+	return s.queryLeaderboard(limit, "escort_pts")
+}
+
+func (s *Store) TopDefendLeaderboard(limit int) ([]LeaderboardEntry, error) {
+	return s.queryLeaderboard(limit, "defend_pts")
+}
+
+func (s *Store) queryLeaderboard(limit int, ptsColumn string) ([]LeaderboardEntry, error) {
+	if limit <= 0 {
+		limit = 10
+	}
+	query := fmt.Sprintf(`
+		SELECT p.name, ps.%s, ps.marks, ps.rounds_won
+		FROM player_stats ps
+		JOIN players p ON p.uid = ps.uid
+		ORDER BY ps.%s DESC, ps.marks DESC, ps.rounds_won DESC, p.name ASC
+		LIMIT ?`, ptsColumn, ptsColumn)
+	rows, err := s.db.Query(query, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []LeaderboardEntry
+	for rows.Next() {
+		var row LeaderboardEntry
+		if err := rows.Scan(&row.Name, &row.Points, &row.Marks, &row.Wins); err != nil {
+			return nil, err
+		}
+		out = append(out, row)
+	}
+	return out, rows.Err()
+}
+
 func (s *Store) GetStats(uid string) (PlayerStats, error) {
 	var st PlayerStats
 	st.UID = uid

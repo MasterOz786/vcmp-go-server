@@ -2,20 +2,31 @@ package safari
 
 import "time"
 
-func (e *Engine) BroadcastScoreboard() {
-	var state int32
+const (
+	scoreboardStateAuto    int32 = -1
+	scoreboardStateHidden  int32 = 0
+	scoreboardStatePreview int32 = 4
+)
+
+func (e *Engine) scoreboardState(forceState int32) int32 {
+	if forceState >= 0 {
+		return forceState
+	}
 	switch e.round.State {
 	case RoundActive:
 		if e.round.Paused {
-			state = 3
-		} else {
-			state = 1
+			return 3
 		}
+		return 1
 	case RoundEnded:
-		state = 2
+		return 2
 	default:
-		state = 0
+		return 0
 	}
+}
+
+func (e *Engine) buildScoreboardPacket(forceState int32) []byte {
+	state := e.scoreboardState(forceState)
 
 	left := e.round.TimeLeft()
 	mins := int32(left / time.Minute)
@@ -39,8 +50,22 @@ func (e *Engine) BroadcastScoreboard() {
 	s.WriteFloat(hydraHP)
 	s.WriteInt(cpIdx)
 	s.WriteInt(cpTotal)
+	return s.Bytes()
+}
 
-	payload := s.Bytes()
+func (e *Engine) SendScoreboardTo(playerID int, forceState int32) {
+	if !e.api.IsConnected(playerID) {
+		return
+	}
+	_ = e.api.SendScriptData(playerID, e.buildScoreboardPacket(forceState))
+}
+
+func (e *Engine) SendScoreboardHide(playerID int) {
+	e.SendScoreboardTo(playerID, scoreboardStateHidden)
+}
+
+func (e *Engine) BroadcastScoreboard() {
+	payload := e.buildScoreboardPacket(scoreboardStateAuto)
 	for _, playerID := range e.teams.ConnectedIDs() {
 		if e.api.IsConnected(playerID) {
 			_ = e.api.SendScriptData(playerID, payload)

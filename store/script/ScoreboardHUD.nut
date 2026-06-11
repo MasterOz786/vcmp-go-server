@@ -13,10 +13,22 @@ ScoreboardHUD <- {
 	},
 
 	function hide() {
-		this.escortLabel = null;
-		this.defendLabel = null;
-		this.timerLabel = null;
-		this.statusLabel = null;
+		if (this.escortLabel != null) {
+			this.escortLabel.Detach();
+			this.escortLabel = null;
+		}
+		if (this.defendLabel != null) {
+			this.defendLabel.Detach();
+			this.defendLabel = null;
+		}
+		if (this.timerLabel != null) {
+			this.timerLabel.Detach();
+			this.timerLabel = null;
+		}
+		if (this.statusLabel != null) {
+			this.statusLabel.Detach();
+			this.statusLabel = null;
+		}
 		this.visible = false;
 	},
 
@@ -25,25 +37,25 @@ ScoreboardHUD <- {
 			return;
 		}
 		local w = this.res.X;
-		local escortColour = Colour(110, 210, 255);
-		local defendColour = Colour(255, 110, 110);
+		local escortColour = Colour(100, 220, 255);
+		local defendColour = Colour(255, 115, 115);
 
-		this.escortLabel = GUILabel(VectorScreen(floor(w * 0.08), 8), escortColour, "Escort: 0");
-		this.escortLabel.FontSize = 22;
+		this.escortLabel = GUILabel(VectorScreen(floor(w * 0.06), 10), escortColour, "ESCORT 0");
+		this.escortLabel.FontSize = 20;
 		this.escortLabel.FontFlags = GUI_FFLAG_OUTLINE | GUI_FFLAG_BOLD;
 
-		this.defendLabel = GUILabel(VectorScreen(floor(w * 0.72), 8), defendColour, "Defend: 0");
-		this.defendLabel.FontSize = 22;
+		this.defendLabel = GUILabel(VectorScreen(floor(w * 0.74), 10), defendColour, "DEFEND 0");
+		this.defendLabel.FontSize = 20;
 		this.defendLabel.FontFlags = GUI_FFLAG_OUTLINE | GUI_FFLAG_BOLD;
 
-		this.timerLabel = GUILabel(VectorScreen(floor(w * 0.44), 6), Colour(255, 255, 255), "00:00");
-		this.timerLabel.FontSize = 24;
+		this.timerLabel = GUILabel(VectorScreen(floor(w * 0.44), 8), Colour(245, 248, 255), "00:00");
+		this.timerLabel.FontSize = 22;
 		this.timerLabel.TextAlignment = GUI_ALIGN_CENTERH;
-		this.timerLabel.Size = VectorScreen(floor(w * 0.12), 30);
+		this.timerLabel.Size = VectorScreen(floor(w * 0.12), 28);
 		this.timerLabel.FontFlags = GUI_FFLAG_OUTLINE | GUI_FFLAG_BOLD;
 
-		this.statusLabel = GUILabel(VectorScreen(floor(w * 0.18), 38), Colour(220, 220, 220), "");
-		this.statusLabel.FontSize = 14;
+		this.statusLabel = GUILabel(VectorScreen(floor(w * 0.2), 40), Colour(170, 180, 200), "");
+		this.statusLabel.FontSize = 13;
 		this.statusLabel.Size = VectorScreen(floor(w * 0.64), 24);
 		this.statusLabel.TextAlignment = GUI_ALIGN_CENTERH;
 		this.statusLabel.FontFlags = GUI_FFLAG_OUTLINE;
@@ -57,8 +69,8 @@ ScoreboardHUD <- {
 		}
 		this.ensureLabels();
 
-		this.escortLabel.Text = "Escort: " + escort;
-		this.defendLabel.Text = "Defend: " + defend;
+		this.escortLabel.Text = "ESCORT " + escort;
+		this.defendLabel.Text = "DEFEND " + defend;
 
 		local mm = mins < 10 ? "0" + mins : mins.tostring();
 		local ss = secs < 10 ? "0" + secs : secs.tostring();
@@ -68,6 +80,8 @@ ScoreboardHUD <- {
 			this.statusLabel.Text = "Round ended";
 		} else if (state == 3) {
 			this.statusLabel.Text = "Paused";
+		} else if (state == 4) {
+			this.statusLabel.Text = "Waiting for round start";
 		} else if (state == 1) {
 			local status = "Hydra HP: " + hydraHp.tointeger() + " / 1000";
 			if (cpTotal > 0) {

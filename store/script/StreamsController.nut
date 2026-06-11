@@ -38,6 +38,36 @@ class StreamsController {
 		} else if (type == Packets.HIDE_PACKS) {
 			sprites.hidePacksSprite();
 			windows.packsWindow.clear();
+		} else if (type == Packets.LOBBY_LEADERBOARD) {
+			local mode = stream.ReadInt();
+			if (mode < 0) {
+				windows.lobbyLeaderboard.hideOverlay();
+				return;
+			}
+			local escortCount = stream.ReadInt();
+			local escortRows = [];
+			for (local i = 0; i < escortCount; i++) {
+				escortRows.append({
+					name = stream.ReadString(),
+					points = stream.ReadInt(),
+					marks = stream.ReadInt(),
+					wins = stream.ReadInt(),
+				});
+			}
+			local defendRows = [];
+			local defendCount = stream.ReadInt();
+			for (local i = 0; i < defendCount; i++) {
+				defendRows.append({
+					name = stream.ReadString(),
+					points = stream.ReadInt(),
+					marks = stream.ReadInt(),
+					wins = stream.ReadInt(),
+				});
+			}
+			windows.roundScoreboard.populateBoards(escortRows, defendRows);
+			if (mode == 1) {
+				windows.lobbyLeaderboard.showOverlay(escortRows, defendRows);
+			}
 		} else if (type == Packets.ROUND_END_STATS) {
 			local winnerTeam = stream.ReadInt();
 			if (winnerTeam < 0) {

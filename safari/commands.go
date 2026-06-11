@@ -116,6 +116,14 @@ func (e *Engine) HandleCommand(playerID int, raw string) CommandResult {
 	case "/lobby":
 		e.cmdLobby(playerID)
 		return CommandResult{Handled: true, Deny: true}
+	case "/scoreboard":
+		return e.cmdScoreboard(playerID, args)
+	case "/leaderboard", "/leaderboards":
+		return e.cmdLeaderboard(playerID)
+	case "/gotopos":
+		return e.cmdGoToPos(playerID, args)
+	case "/getvehicle":
+		return e.cmdGetVehicle(playerID, args)
 	case "/wep":
 		return e.cmdWep(playerID, args)
 	case "/reload":
@@ -139,6 +147,12 @@ func (e *Engine) sendHelp(playerID int) {
 		"/hydraview or H — cycle Hydra camera",
 		"/getpos [name] — your position (or another player's)",
 		"/lobby — warp to the lobby spawn",
+		"/scoreboard — show live round HUD",
+		"/scoreboard end — show round stats overlay (P to close)",
+		"/scoreboard hide — hide scoreboard UI",
+		"/leaderboard — toggle all-time leaderboard UI",
+		"/gotopos <x> <y> <z> — admin: warp to coordinates",
+		"/getvehicle <id> — admin: vehicle position and stats",
 		"P — weapon pack picker (also closes UI)",
 		"/status — round info",
 		"/stats — your persistent stats",
@@ -285,6 +299,118 @@ func (e *Engine) cmdLobby(playerID int) {
 		"Warped to lobby: %.2f, %.2f, %.2f",
 		lobby.X, lobby.Y, lobby.Z,
 	))
+}
+
+func (e *Engine) cmdLeaderboard(playerID int) CommandResult {
+	e.ToggleLobbyLeaderboard(playerID)
+	return CommandResult{Handled: true, Deny: true}
+}
+
+func (e *Engine) cmdScoreboard(playerID int, args []string) CommandResult {
+	if len(args) > 0 {
+		switch strings.ToLower(args[0]) {
+		case "hide", "off", "close":
+			e.SendScoreboardHide(playerID)
+			e.SendHideRoundStatsTo(playerID)
+			e.api.Send(playerID, ColourGreen, "Scoreboard hidden.")
+			return CommandResult{Handled: true, Deny: true}
+		case "end", "stats", "round":
+			winner, reason := e.roundEndWinnerAndReason()
+			e.SendRoundEndStatsTo(playerID, winner, reason)
+			e.api.Send(playerID, ColourGreen, "Round scoreboard opened (P to close).")
+			return CommandResult{Handled: true, Deny: true}
+		}
+	}
+
+	forceState := scoreboardStateAuto
+	if e.round.State == RoundIdle {
+		forceState = scoreboardStatePreview
+	}
+	e.SendScoreboardTo(playerID, forceState)
+	e.api.Send(playerID, ColourGreen, "Live scoreboard shown.")
+	return CommandResult{Handled: true, Deny: true}
+}
+
+func (e *Engine) cmdGoToPos(playerID int, args []string) CommandResult {
+	if !e.isAdmin(playerID) {
+		e.api.Send(playerID, ColourRed, "Admin only.")
+		return CommandResult{Handled: true, Deny: true}
+	}
+	if len(args) < 3 {
+		e.api.Send(playerID, ColourYellow, "Usage: /gotopos <x> <y> <z>")
+		return CommandResult{Handled: true, Deny: true}
+	}
+	x, err := parseCoord(args[0])
+	if err != nil {
+		e.api.Send(playerID, ColourYellow, "X must be a number.")
+		return CommandResult{Handled: true, Deny: true}
+	}
+	y, err := parseCoord(args[1])
+	if err != nil {
+		e.api.Send(playerID, ColourYellow, "Y must be a number.")
+		return CommandResult{Handled: true, Deny: true}
+	}
+	z, err := parseCoord(args[2])
+	if err != nil {
+		e.api.Send(playerID, ColourYellow, "Z must be a number.")
+		return CommandResult{Handled: true, Deny: true}
+	}
+	if !e.api.IsSpawned(playerID) {
+		if err := e.api.ForceSpawn(playerID); err != nil {
+			e.api.Send(playerID, ColourYellow, "Spawn first, then use /gotopos.")
+			return CommandResult{Handled: true, Deny: true}
+		}
+	}
+	if e.api.PlayerVehicleID(playerID) >= 0 {
+		_ = e.api.RemoveFromVehicle(playerID)
+	}
+	pos := Vec3{X: x, Y: y, Z: z}
+	if err := e.api.SetPlayerPosition(playerID, pos); err != nil {
+		e.api.Send(playerID, ColourRed, "Could not warp to position.")
+		return CommandResult{Handled: true, Deny: true}
+	}
+	e.api.Send(playerID, ColourGreen, fmt.Sprintf(
+		"Warped to %.2f, %.2f, %.2f",
+		pos.X, pos.Y, pos.Z,
+	))
+	return CommandResult{Handled: true, Deny: true}
+}
+
+func (e *Engine) cmdGetVehicle(playerID int, args []string) CommandResult {
+	if !e.isAdmin(playerID) {
+		e.api.Send(playerID, ColourRed, "Admin only.")
+		return CommandResult{Handled: true, Deny: true}
+	}
+	if len(args) < 1 {
+		e.api.Send(playerID, ColourYellow, "Usage: /getvehicle <id>")
+		return CommandResult{Handled: true, Deny: true}
+	}
+	vehicleID, err := strconv.Atoi(args[0])
+	if err != nil || vehicleID < 0 {
+		e.api.Send(playerID, ColourYellow, "Vehicle id must be zero or greater.")
+		return CommandResult{Handled: true, Deny: true}
+	}
+	if !e.api.VehicleExists(vehicleID) {
+		e.api.Send(playerID, ColourRed, fmt.Sprintf("Vehicle %d does not exist.", vehicleID))
+		return CommandResult{Handled: true, Deny: true}
+	}
+	pos := e.api.VehiclePos(vehicleID)
+	rot := e.api.VehicleRotationEuler(vehicleID)
+	model := e.api.VehicleModel(vehicleID)
+	hp := e.api.VehicleHealth(vehicleID)
+	e.api.Send(playerID, ColourCyan, fmt.Sprintf(
+		"Vehicle %d — model %d | HP %.0f | pos %.2f, %.2f, %.2f | rot %.2f, %.2f, %.2f",
+		vehicleID, model, hp, pos.X, pos.Y, pos.Z, rot.X, rot.Y, rot.Z,
+	))
+	return CommandResult{Handled: true, Deny: true}
+}
+
+func parseCoord(s string) (float32, error) {
+	v, err := strconv.ParseFloat(s, 32)
+	if err != nil {
+		return 0, err
+	}
+	return float32(v), nil
 }
 
 func (e *Engine) cmdGetPos(playerID int, args []string) {
