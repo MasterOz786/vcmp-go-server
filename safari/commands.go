@@ -110,6 +110,11 @@ func (e *Engine) HandleCommand(playerID int, raw string) CommandResult {
 	case "/hydraview":
 		e.cycleHydraCamera(playerID)
 		return CommandResult{Handled: true, Deny: true}
+	case "/getpos":
+		e.cmdGetPos(playerID, args)
+		return CommandResult{Handled: true, Deny: true}
+	case "/wep":
+		return e.cmdWep(playerID, args)
 	default:
 		if strings.HasPrefix(name, "/") && len(name) > 1 {
 			e.api.Send(playerID, ColourYellow, "Unknown command. Try /help")
@@ -126,7 +131,9 @@ func (e *Engine) sendHelp(playerID int) {
 		"/mark [name] — Escort: designate target",
 		"/testhydra — spawn test Hydra and warp in",
 		"/testhydra stop — remove your test Hydra",
-		"/hydraview or H — cycle Hydra camera (client-side, no lag)",
+		"/hydraview or H — cycle Hydra camera",
+		"/getpos [name] — your position (or another player's)",
+		"P — weapon pack picker (also closes UI)",
 		"/status — round info",
 		"/stats — your persistent stats",
 		"/register — open registration window",
@@ -134,6 +141,7 @@ func (e *Engine) sendHelp(playerID int) {
 		"/stopsafari — admin: stop round",
 		"/pausesafari — admin: pause/resume round",
 		"/autostart on|off — admin: toggle autostart",
+		"/wep <id> [ammo] — admin: give weapon",
 	}
 	for _, l := range lines {
 		e.api.Send(playerID, ColourWhite, l)
@@ -183,6 +191,7 @@ func (e *Engine) cmdMark(playerID int, args []string) CommandResult {
 	} else {
 		e.announce(MsgMarkSuccess, msg)
 		e.teams.SyncScores(e.api, e.round.Score)
+		e.BroadcastScoreboard()
 	}
 	return CommandResult{Handled: true, Deny: true}
 }
@@ -242,4 +251,58 @@ func (e *Engine) cmdRegister(playerID int) {
 		return
 	}
 	e.promptRegistration(playerID)
+}
+
+func (e *Engine) cmdGetPos(playerID int, args []string) {
+	targetID := playerID
+	label := e.api.PlayerName(playerID)
+	if len(args) > 0 {
+		name := strings.Join(args, " ")
+		targetID = e.api.PlayerIDFromName(name)
+		if targetID < 0 || !e.api.IsConnected(targetID) {
+			e.api.Send(playerID, ColourRed, name+" was not found.")
+			return
+		}
+		label = e.api.PlayerName(targetID)
+	}
+	if !e.api.IsSpawned(targetID) {
+		e.api.Send(playerID, ColourYellow, label+" is not spawned.")
+		return
+	}
+	pos := e.api.PlayerPosition(targetID)
+	e.api.Send(playerID, ColourCyan, fmt.Sprintf(
+		"%s position: %.2f, %.2f, %.2f",
+		label, pos.X, pos.Y, pos.Z,
+	))
+}
+
+func (e *Engine) cmdWep(playerID int, args []string) CommandResult {
+	if !e.api.IsAdmin(playerID) {
+		e.api.Send(playerID, ColourRed, "Admin only.")
+		return CommandResult{Handled: true, Deny: true}
+	}
+	if len(args) < 1 {
+		e.api.Send(playerID, ColourYellow, "Usage: /wep <weapon id> [ammo]")
+		return CommandResult{Handled: true, Deny: true}
+	}
+	if !e.api.IsSpawned(playerID) {
+		e.api.Send(playerID, ColourYellow, "You must be spawned.")
+		return CommandResult{Handled: true, Deny: true}
+	}
+	weaponID, err := strconv.Atoi(args[0])
+	if err != nil || weaponID <= 0 {
+		e.api.Send(playerID, ColourYellow, "Weapon id must be a positive number.")
+		return CommandResult{Handled: true, Deny: true}
+	}
+	ammo := 5000
+	if len(args) >= 2 {
+		ammo, err = strconv.Atoi(args[1])
+		if err != nil || ammo < 0 {
+			e.api.Send(playerID, ColourYellow, "Ammo must be zero or greater.")
+			return CommandResult{Handled: true, Deny: true}
+		}
+	}
+	e.api.GiveWeapon(playerID, weaponID, ammo)
+	e.api.Send(playerID, ColourGreen, fmt.Sprintf("Weapon %d granted (%d ammo).", weaponID, ammo))
+	return CommandResult{Handled: true, Deny: true}
 }

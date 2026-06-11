@@ -117,6 +117,8 @@ func (t *Teams) ResetRoundState() {
 	for _, s := range t.sessions {
 		s.SpawnIndex = 0
 		s.HasSpawnedThisRound = false
+		s.RoundKills = 0
+		s.RoundDeaths = 0
 	}
 }
 

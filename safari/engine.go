@@ -23,6 +23,7 @@ type Engine struct {
 	autostartEnabled  bool
 	tickCount         int
 	secondsAccum      float32
+	hydraCameraAccum  float32
 }
 
 func NewEngine(api API, db *DBWorker, cfg Config, mapCfg MapConfig, serverName, gameMode string) *Engine {
@@ -71,8 +72,14 @@ func (e *Engine) OnServerStart() {
 	e.announce(MsgServerReady)
 }
 
-// OnServerFrame drives the 1 Hz game tick from VC:MP frame time.
+// OnServerFrame drives throttled Hydra camera updates and the 1 Hz game tick.
 func (e *Engine) OnServerFrame(elapsed float32) {
+	e.hydraCameraAccum += elapsed
+	if e.hydraCameraAccum >= hydraCameraUpdateInterval {
+		e.hydraCameraAccum -= hydraCameraUpdateInterval
+		e.updateHydraCameras()
+	}
+
 	e.secondsAccum += elapsed
 	if e.secondsAccum < 1.0 {
 		return
@@ -88,6 +95,8 @@ func (e *Engine) onTick() {
 
 	if e.round.MaybeReset() {
 		e.announce(MsgRoundReset)
+		e.BroadcastScoreboard()
+		e.BroadcastHideRoundStats()
 	}
 	if e.round.State != RoundActive {
 		if e.round.State == RoundIdle {
@@ -108,6 +117,8 @@ func (e *Engine) onTick() {
 	if e.cfg.StatusBroadcastSec > 0 && e.tickCount%e.cfg.StatusBroadcastSec == 0 {
 		e.announce(MsgStatusBroadcast, e.formatStatusLine())
 	}
+
+	e.BroadcastScoreboard()
 
 	nowMs := e.api.ServerTimeMs()
 	tick := e.round.Hydra.Tick(e.api, &e.round.Score, nowMs)
@@ -165,11 +176,18 @@ func (e *Engine) startRound() {
 	}
 	if e.round.Start(e.api, e.mapCfg, e.cfg.RoundMinutes, e.teams, e.marking, e.hydraModel()) {
 		e.announce(MsgRoundStart, e.round.RoundMinutesStr())
+		e.BroadcastScoreboard()
+		for _, playerID := range e.teams.ConnectedIDs() {
+			if e.api.IsConnected(playerID) {
+				e.SendShowPacks(playerID)
+			}
+		}
 	}
 }
 
 func (e *Engine) endRound(winnerTeam int, reason string) {
 	e.round.End(e.api, winnerTeam, reason)
+	e.BroadcastRoundEndStats(winnerTeam, reason)
 	colour := "green"
 	teamName := "Escort"
 	if winnerTeam == TeamDefend {
@@ -179,6 +197,7 @@ func (e *Engine) endRound(winnerTeam int, reason string) {
 	e.announce(MsgRoundEnd, colour, teamName, reason,
 		strItoa(e.round.Score.EscortScore), strItoa(e.round.Score.DefendScore))
 	e.persistRound(winnerTeam)
+	e.BroadcastScoreboard()
 	for _, id := range e.teams.ConnectedIDs() {
 		if uid := e.api.PlayerUID(id); uid != "" {
 			e.db.InvalidateStats(uid)
@@ -352,6 +371,9 @@ func (e *Engine) OnConnect(playerID int) {
 	}
 	e.ensurePlayerSession(playerID)
 	e.teams.Welcome(e.api, playerID)
+	if e.round.State != RoundIdle {
+		e.BroadcastScoreboard()
+	}
 	if e.round.State == RoundIdle {
 		lobby := e.cfg.LobbyPosition(e.mapCfg)
 		if lobby.X != 0 || lobby.Y != 0 || lobby.Z != 0 {
@@ -400,6 +422,14 @@ func (e *Engine) OnSpawn(playerID int) {
 func (e *Engine) OnDeath(playerID, killerID int) {
 	e.teams.AdvanceSpawn(playerID)
 	e.scheduleLoadoutRetry(playerID)
+	if s := e.teams.session(playerID); s != nil {
+		s.RoundDeaths++
+	}
+	if killerID >= 0 && e.api.IsConnected(killerID) {
+		if ks := e.teams.session(killerID); ks != nil {
+			ks.RoundKills++
+		}
+	}
 	victim := e.api.PlayerName(playerID)
 	var msg string
 	if killerID < 0 || !e.api.IsConnected(killerID) {
@@ -430,6 +460,8 @@ func (e *Engine) OnPlayerKeyBind(playerID, bindID int, released bool) {
 		_ = e.HandleCommand(playerID, "/pack 2")
 	case 3:
 		_ = e.HandleCommand(playerID, "/pack 3")
+	case 4:
+		e.cycleHydraCamera(playerID)
 	}
 }
 
@@ -457,7 +489,7 @@ func (e *Engine) OnPlayerEnterVehicle(playerID, vehicleID, slot int) {
 		s.HydraCameraMode = HydraCamDefault
 	}
 	e.syncHydraCamera(playerID, vehicleID)
-	e.api.Send(playerID, ColourCyan, "Hydra ready — press H or /hydraview for camera (client-side).")
+	e.api.Send(playerID, ColourCyan, "Hydra ready — press H or /hydraview to cycle camera.")
 }
 
 func (e *Engine) OnPlayerExitVehicle(playerID, vehicleID int) {
@@ -497,6 +529,7 @@ func (e *Engine) TogglePause() bool {
 	} else {
 		e.announce(MsgUnpause)
 	}
+	e.BroadcastScoreboard()
 	return paused
 }
 

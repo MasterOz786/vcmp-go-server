@@ -5,6 +5,13 @@ Packets <- {
 	"REQUEST_REGISTER_UI": 94,
 	"HYDRA_CAM": 95,
 	"HYDRA_CAM_HELLO": 96,
+	"SCOREBOARD": 97,
+	"HYDRA_CAM_CYCLE": 98,
+	"SELECT_PACK": 99,
+	"SHOW_PACKS": 100,
+	"HIDE_PACKS": 101,
+	"ROUND_END_STATS": 102,
+	"REQUEST_SHOW_PACKS": 103,
 };
 
 HydraCam <- {
@@ -13,4 +20,9 @@ HydraCam <- {
 	"CHASE": 1,
 	"SIDE": 2,
 	"TACTICAL": 3,
+};
+
+Teams <- {
+	"ESCORT": 1,
+	"DEFEND": 2,
 };

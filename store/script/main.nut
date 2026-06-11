@@ -1,18 +1,24 @@
 dofile("utils/SafariConstants.nut");
+dofile("utils/PackDefinitions.nut");
 dofile("utils/Timers.nut");
 dofile("HydraCamera.nut");
+dofile("ScoreboardHUD.nut");
 dofile("WindowsController.nut");
 dofile("StreamsController.nut");
 dofile("ClickHandler.nut");
 
 local screen = GUI.GetScreenSize();
+scoreboard <- ScoreboardHUD;
+scoreboard.init(screen);
 windows <- WindowsController(screen);
 streams <- StreamsController(windows);
 clicks <- ClickHandler(windows);
+packsKey <- null;
 
 function Script::ScriptLoad() {
 	SafariHydraCam.init();
 	SafariHydraCam.sendHello();
+	packsKey <- KeyBind(0x50); // P — toggle weapon pack picker / close scoreboard
 
 	local reg = Stream();
 	reg.WriteInt(Packets.REQUEST_REGISTER_UI);
@@ -21,7 +27,6 @@ function Script::ScriptLoad() {
 
 function Script::ScriptProcess() {
 	Timer.Process();
-	SafariHydraCam.onScriptProcess();
 }
 
 function Server::ServerData(stream) {
@@ -38,6 +43,9 @@ function GUI::InputReturn(editbox) {
 
 function GUI::GameResize(width, height) {
 	local v = VectorScreen(width, height);
+	scoreboard.onResize(v);
+	windows.packsWindow.updatePositions(v);
+	windows.roundScoreboard.onResize(v);
 	windows.registerWindow.updatePositions(v);
 }
 
@@ -47,6 +55,18 @@ function GUI::ElementClick(element, mouseX, mouseY) {
 
 function KeyBind::OnDown(bind) {
 	if (SafariHydraCam.hydraKey != null && bind == SafariHydraCam.hydraKey) {
-		SafariHydraCam.cycleMode();
+		SafariHydraCam.requestCycle();
+		return;
+	}
+	if (packsKey != null && bind == packsKey) {
+		if (windows.roundScoreboard.visible) {
+			windows.roundScoreboard.hide();
+			return;
+		}
+		if (windows.packsWindow.canvas != null) {
+			windows.packsWindow.clear();
+			return;
+		}
+		windows.packsWindow.requestToggle();
 	}
 }

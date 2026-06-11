@@ -1,6 +1,11 @@
 package safari
 
-import "fmt"
+import (
+	"fmt"
+	"math"
+)
+
+const hydraCameraUpdateInterval = float32(0.05) // 20 Hz — smooth enough without per-frame lag
 
 var hydraCameraNames = []string{
 	"Pilot (default)",
@@ -16,9 +21,35 @@ func hydraCameraName(mode int) string {
 	return "Unknown"
 }
 
-// sendHydraCamPacket tells the client script to enable/disable or switch Hydra views.
-// Modes: -1 off (left hydra), 0 pilot default, 1 chase, 2 side, 3 tactical.
-// Camera math runs client-side in store/script to avoid server SetCamera lag.
+func hydraCameraOffsets(api API, vehicleID, mode int) (camPos, lookAt Vec3) {
+	pos := api.VehiclePos(vehicleID)
+	lookAt = Vec3{X: pos.X, Y: pos.Y, Z: pos.Z + 1}
+	rot := api.VehicleRotationEuler(vehicleID)
+	heading := rot.Z * math.Pi / 180
+	sinH := float32(math.Sin(float64(heading)))
+	cosH := float32(math.Cos(float64(heading)))
+
+	switch mode {
+	case HydraCamChase:
+		camPos = Vec3{
+			X: pos.X - sinH*38,
+			Y: pos.Y + cosH*38,
+			Z: pos.Z + 14,
+		}
+	case HydraCamSide:
+		camPos = Vec3{
+			X: pos.X + cosH*28,
+			Y: pos.Y + sinH*28,
+			Z: pos.Z + 10,
+		}
+	case HydraCamTactical:
+		camPos = Vec3{X: pos.X, Y: pos.Y, Z: pos.Z + 55}
+	default:
+		camPos = pos
+	}
+	return camPos, lookAt
+}
+
 func (e *Engine) sendHydraCamPacket(playerID, mode, vehicleID int) {
 	if !e.api.IsConnected(playerID) {
 		return
@@ -29,10 +60,31 @@ func (e *Engine) sendHydraCamPacket(playerID, mode, vehicleID int) {
 	s.WriteInt(int32(vehicleID))
 	if err := e.api.SendScriptData(playerID, s.Bytes()); err != nil {
 		e.api.Log(fmt.Sprintf("[safari] hydra cam stream to %d failed: %v", playerID, err))
+	}
+}
+
+func (e *Engine) applyHydraCamera(playerID, vehicleID, mode int) {
+	if mode <= HydraCamDefault {
+		_ = e.api.RestoreCamera(playerID)
 		return
 	}
-	if mode >= HydraCamDefault {
-		e.warnIfNoClientScript(playerID)
+	if vehicleID < 0 {
+		return
+	}
+	camPos, lookAt := hydraCameraOffsets(e.api, vehicleID, mode)
+	_ = e.api.SetCamera(playerID, camPos, lookAt)
+}
+
+func (e *Engine) updateHydraCameras() {
+	for playerID, s := range e.teams.sessions {
+		if !e.api.IsConnected(playerID) || s.HydraCameraMode <= HydraCamDefault {
+			continue
+		}
+		vid := e.playerHydraVehicleID(playerID)
+		if vid < 0 || e.api.PlayerVehicleID(playerID) != vid {
+			continue
+		}
+		e.applyHydraCamera(playerID, vid, s.HydraCameraMode)
 	}
 }
 
@@ -49,6 +101,7 @@ func (e *Engine) cycleHydraCamera(playerID int) {
 	}
 	s.HydraCameraMode = (s.HydraCameraMode + 1) % HydraCamCount
 	e.sendHydraCamPacket(playerID, s.HydraCameraMode, vid)
+	e.applyHydraCamera(playerID, vid, s.HydraCameraMode)
 	e.api.Send(playerID, ColourCyan, fmt.Sprintf("Hydra view: %s (H or /hydraview)", hydraCameraName(s.HydraCameraMode)))
 }
 
@@ -59,6 +112,7 @@ func (e *Engine) resetHydraCamera(playerID int) {
 	}
 	s.HydraCameraMode = HydraCamDefault
 	e.sendHydraCamPacket(playerID, HydraCamOff, -1)
+	_ = e.api.RestoreCamera(playerID)
 }
 
 func (e *Engine) syncHydraCamera(playerID, vehicleID int) {

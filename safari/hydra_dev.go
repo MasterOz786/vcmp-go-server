@@ -53,10 +53,9 @@ func (e *Engine) cmdTestHydra(playerID int, args []string) CommandResult {
 	e.api.PutPlayerInVehicle(playerID, vid, 0)
 	warnHydraModelMismatch(e.api, playerID, vid, model)
 	e.syncHydraCamera(playerID, vid)
-	e.warnIfNoClientScript(playerID)
 
 	e.api.Send(playerID, ColourGreen, "Test Hydra ready — you are in the pilot seat.")
-	e.api.Send(playerID, ColourCyan, "Press H or /hydraview to cycle camera views (client-side).")
+	e.api.Send(playerID, ColourCyan, "Press H or /hydraview to cycle camera views.")
 	e.api.Log(fmt.Sprintf("[safari] test hydra spawned for player %d vehicle=%d model=%d", playerID, vid, model))
 	return CommandResult{Handled: true, Deny: true}
 }

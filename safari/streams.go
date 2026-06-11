@@ -24,6 +24,17 @@ func (e *Engine) HandleClientScriptData(playerID int, data []byte) {
 	switch pkt {
 	case PacketHydraCamHello:
 		e.markClientScriptReady(playerID)
+	case PacketHydraCamCycle:
+		e.cycleHydraCamera(playerID)
+	case PacketSelectPack:
+		pack, err := r.ReadInt()
+		if err != nil {
+			e.api.Log(fmt.Sprintf("[safari-stream] player %d SELECT_PACK read error: %v", playerID, err))
+			return
+		}
+		e.handleSelectPack(playerID, int(pack))
+	case PacketRequestShowPacks:
+		e.handleRequestShowPacks(playerID)
 	case PacketRequestRegisterUI:
 		uid := e.api.PlayerUID(playerID)
 		if uid != "" {
