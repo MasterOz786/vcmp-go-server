@@ -27,6 +27,8 @@ func (VCMPAPI) IsSpawned(playerID int) bool { return vcmp.API.Player.IsSpawned(p
 
 func (VCMPAPI) IsAdmin(playerID int) bool { return vcmp.API.Player.IsAdmin(playerID) }
 
+func (VCMPAPI) SetAdmin(playerID int, admin bool) { vcmp.API.Player.SetAdmin(playerID, admin) }
+
 func (VCMPAPI) Kick(playerID int) error { return vcmp.API.Player.Kick(playerID) }
 
 func (VCMPAPI) Shutdown() { vcmp.API.Server.Shutdown() }

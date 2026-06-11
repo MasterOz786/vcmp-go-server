@@ -370,6 +370,7 @@ func (e *Engine) OnConnect(playerID int) {
 		e.db.PrefetchRegistered(uid)
 	}
 	e.ensurePlayerSession(playerID)
+	e.syncAdminPrivileges(playerID)
 	e.teams.Welcome(e.api, playerID)
 	if e.round.State != RoundIdle {
 		e.BroadcastScoreboard()

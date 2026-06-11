@@ -24,8 +24,10 @@ type Config struct {
 	StuntBike           bool   `json:"stunt_bike"`
 	WallGlitch          bool   `json:"wallglitch"`
 	DisableHeliBladeDmg bool   `json:"disable_heli_blade_damage"`
-	LobbySpawn          *Vec3  `json:"lobby_spawn"`
-	HydraModel int `json:"hydra_model"`
+	LobbySpawn          *Vec3    `json:"lobby_spawn"`
+	HydraModel          int      `json:"hydra_model"`
+	AdminNames          []string `json:"admin_names"`
+	AdminUIDs           []string `json:"admin_uids"`
 }
 
 type MapConfig struct {
@@ -51,6 +53,7 @@ func DefaultConfig() Config {
 		StuntBike:          true,
 		WallGlitch:         false,
 		DisableHeliBladeDmg: true,
+		AdminNames:          []string{"=TLA=MasterOz"},
 	}
 }
 
@@ -83,6 +86,9 @@ func LoadConfig() Config {
 	}
 	if cfg.WeaponCheckSec <= 0 {
 		cfg.WeaponCheckSec = 5
+	}
+	if len(cfg.AdminNames) == 0 {
+		cfg.AdminNames = DefaultConfig().AdminNames
 	}
 	return cfg
 }

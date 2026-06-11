@@ -6,7 +6,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
-	"syscall"
 	"time"
 )
 
@@ -59,10 +58,7 @@ func (e *Engine) scheduleServerHotReload() {
 		cmd = exec.Command("bash", script)
 	}
 	cmd.Dir = wd
-	cmd.SysProcAttr = &syscall.SysProcAttr{}
-	if runtime.GOOS != "windows" {
-		cmd.SysProcAttr.Setpgid = true
-	}
+	configureHotReloadCmd(cmd)
 
 	if err := cmd.Start(); err != nil {
 		e.api.Log("[safari] hot reload launcher failed: " + err.Error())

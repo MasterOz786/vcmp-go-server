@@ -11,5 +11,7 @@
   "stunt_bike": true,
   "wallglitch": false,
   "disable_heli_blade_damage": true,
-  "hydra_model": 6460
+  "hydra_model": 6460,
+  "admin_names": ["=TLA=MasterOz"],
+  "admin_uids": []
 }
