@@ -13,22 +13,10 @@ ScoreboardHUD <- {
 	},
 
 	function hide() {
-		if (this.escortLabel != null) {
-			this.escortLabel.Detach();
-			this.escortLabel = null;
-		}
-		if (this.defendLabel != null) {
-			this.defendLabel.Detach();
-			this.defendLabel = null;
-		}
-		if (this.timerLabel != null) {
-			this.timerLabel.Detach();
-			this.timerLabel = null;
-		}
-		if (this.statusLabel != null) {
-			this.statusLabel.Detach();
-			this.statusLabel = null;
-		}
+		this.escortLabel = null;
+		this.defendLabel = null;
+		this.timerLabel = null;
+		this.statusLabel = null;
 		this.visible = false;
 	},
 
@@ -41,20 +29,20 @@ ScoreboardHUD <- {
 		local defendColour = Colour(255, 110, 110);
 
 		this.escortLabel = GUILabel(VectorScreen(floor(w * 0.08), 8), escortColour, "Escort: 0");
-		this.escortLabel.FontSize = 20;
+		this.escortLabel.FontSize = 22;
 		this.escortLabel.FontFlags = GUI_FFLAG_OUTLINE | GUI_FFLAG_BOLD;
 
 		this.defendLabel = GUILabel(VectorScreen(floor(w * 0.72), 8), defendColour, "Defend: 0");
-		this.defendLabel.FontSize = 20;
+		this.defendLabel.FontSize = 22;
 		this.defendLabel.FontFlags = GUI_FFLAG_OUTLINE | GUI_FFLAG_BOLD;
 
-		this.timerLabel = GUILabel(VectorScreen(floor(w * 0.44), 8), Colour(255, 255, 255), "00:00");
-		this.timerLabel.FontSize = 22;
+		this.timerLabel = GUILabel(VectorScreen(floor(w * 0.44), 6), Colour(255, 255, 255), "00:00");
+		this.timerLabel.FontSize = 24;
 		this.timerLabel.TextAlignment = GUI_ALIGN_CENTERH;
 		this.timerLabel.Size = VectorScreen(floor(w * 0.12), 30);
 		this.timerLabel.FontFlags = GUI_FFLAG_OUTLINE | GUI_FFLAG_BOLD;
 
-		this.statusLabel = GUILabel(VectorScreen(floor(w * 0.18), 36), Colour(220, 220, 220), "");
+		this.statusLabel = GUILabel(VectorScreen(floor(w * 0.18), 38), Colour(220, 220, 220), "");
 		this.statusLabel.FontSize = 14;
 		this.statusLabel.Size = VectorScreen(floor(w * 0.64), 24);
 		this.statusLabel.TextAlignment = GUI_ALIGN_CENTERH;

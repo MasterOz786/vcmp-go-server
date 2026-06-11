@@ -113,6 +113,9 @@ func (e *Engine) HandleCommand(playerID int, raw string) CommandResult {
 	case "/getpos":
 		e.cmdGetPos(playerID, args)
 		return CommandResult{Handled: true, Deny: true}
+	case "/lobby":
+		e.cmdLobby(playerID)
+		return CommandResult{Handled: true, Deny: true}
 	case "/wep":
 		return e.cmdWep(playerID, args)
 	case "/reload":
@@ -135,6 +138,7 @@ func (e *Engine) sendHelp(playerID int) {
 		"/testhydra stop — remove your test Hydra",
 		"/hydraview or H — cycle Hydra camera",
 		"/getpos [name] — your position (or another player's)",
+		"/lobby — warp to the lobby spawn",
 		"P — weapon pack picker (also closes UI)",
 		"/status — round info",
 		"/stats — your persistent stats",
@@ -256,6 +260,31 @@ func (e *Engine) cmdRegister(playerID int) {
 		return
 	}
 	e.promptRegistration(playerID)
+}
+
+func (e *Engine) cmdLobby(playerID int) {
+	lobby := e.cfg.LobbyPosition(e.mapCfg)
+	if lobby.X == 0 && lobby.Y == 0 && lobby.Z == 0 {
+		e.api.Send(playerID, ColourRed, "Lobby spawn is not configured.")
+		return
+	}
+	if !e.api.IsSpawned(playerID) {
+		if err := e.api.ForceSpawn(playerID); err != nil {
+			e.api.Send(playerID, ColourYellow, "Spawn first, then use /lobby.")
+			return
+		}
+	}
+	if e.api.PlayerVehicleID(playerID) >= 0 {
+		_ = e.api.RemoveFromVehicle(playerID)
+	}
+	if err := e.api.SetPlayerPosition(playerID, lobby); err != nil {
+		e.api.Send(playerID, ColourRed, "Could not warp to lobby.")
+		return
+	}
+	e.api.Send(playerID, ColourGreen, fmt.Sprintf(
+		"Warped to lobby: %.2f, %.2f, %.2f",
+		lobby.X, lobby.Y, lobby.Z,
+	))
 }
 
 func (e *Engine) cmdGetPos(playerID int, args []string) {

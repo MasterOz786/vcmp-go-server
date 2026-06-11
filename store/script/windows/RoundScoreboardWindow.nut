@@ -1,17 +1,17 @@
 class TeamRoundScoreboardWindow {
 	static COL_TITLEBAR = Colour(68, 68, 68);
-	static COL_SELECTED = Colour(240, 175, 238);
 	static COL_ESCORT = Colour(110, 210, 255);
 	static COL_DEFEND = Colour(255, 110, 110);
 	static COL_WHITE = Colour(255, 255, 255);
 
+	// patrol_default.json spawn area (not CTF map coords).
 	static ESCORT_ROT = Vector(-1.5711, 0, 4.6);
 	static ESCORT_SIZE = Vector(3.6, 4, 0);
-	static ESCORT_POS = Vector(501.900, -79.0, 15.3);
+	static ESCORT_POS = Vector(-1145.0, 15.0, 16.0);
 
 	static DEFEND_ROT = Vector(-1.5711, 0, 3.1);
 	static DEFEND_SIZE = Vector(4, 5.0, 0);
-	static DEFEND_POS = Vector(497, -89.4947, 15.66);
+	static DEFEND_POS = Vector(-920.0, 175.0, 24.0);
 
 	window = null;
 	elements = [];
@@ -193,7 +193,6 @@ class RoundScoreboardController {
 		this.escortBoard.clearWindow();
 		this.defendBoard.clearWindow();
 		if (this.bannerCanvas != null) {
-			this.bannerCanvas.Detach();
 			this.bannerCanvas = null;
 		}
 		this.visible = false;
@@ -219,6 +218,11 @@ class RoundScoreboardController {
 		this.bannerCanvas.Position = VectorScreen(0, 0);
 		this.bannerCanvas.Size = VectorScreen(w, h);
 
+		local backdrop = GUILabel(VectorScreen(0, 0), Colour(0, 0, 0), "");
+		backdrop.Size = VectorScreen(w, h);
+		backdrop.Alpha = 180;
+		this.bannerCanvas.AddChild(backdrop);
+
 		local winnerName = winnerTeam == Teams.ESCORT ? "ESCORT" : "DEFENDERS";
 		local winnerColour = winnerTeam == Teams.ESCORT ? COL_ESCORT : COL_DEFEND;
 		local banner = GUILabel(VectorScreen(0, floor(h * 0.06)), winnerColour,
@@ -236,12 +240,68 @@ class RoundScoreboardController {
 		sub.FontFlags = GUI_FFLAG_OUTLINE;
 		this.bannerCanvas.AddChild(sub);
 
+		this.drawTeamTable(Teams.ESCORT, escortScore, floor(h * 0.16), players);
+		this.drawTeamTable(Teams.DEFEND, defendScore, floor(h * 0.50), players);
+
 		local hint = GUILabel(VectorScreen(w - 120, h - 28), COL_WHITE, "P Close");
 		hint.FontSize = 12;
 		hint.FontFlags = GUI_FFLAG_OUTLINE;
 		this.bannerCanvas.AddChild(hint);
 
 		this.visible = true;
+	}
+
+	function drawTeamTable(team, teamScore, topY, players) {
+		local w = this.res.X;
+		local tableW = floor(w * 0.78);
+		local leftX = floor((w - tableW) / 2);
+		local teamColour = team == Teams.ESCORT ? COL_ESCORT : COL_DEFEND;
+		local teamLabel = team == Teams.ESCORT ? "ESCORT TEAM" : "DEFEND TEAM";
+
+		local scoreBadge = GUILabel(VectorScreen(leftX - 56, topY + 20), teamColour, teamScore.tostring());
+		scoreBadge.FontSize = 28;
+		scoreBadge.FontFlags = GUI_FFLAG_OUTLINE | GUI_FFLAG_BOLD;
+		this.bannerCanvas.AddChild(scoreBadge);
+
+		local header = GUILabel(VectorScreen(leftX, topY), teamColour, teamLabel);
+		header.FontSize = 16;
+		header.Size = VectorScreen(tableW, 24);
+		header.FontFlags = GUI_FFLAG_OUTLINE | GUI_FFLAG_BOLD;
+		this.bannerCanvas.AddChild(header);
+
+		local cols = GUILabel(VectorScreen(leftX + 8, topY + 26), COL_WHITE,
+			"Player                          Points   Kills   Deaths");
+		cols.FontSize = 12;
+		cols.Size = VectorScreen(tableW, 18);
+		cols.FontFlags = GUI_FFLAG_OUTLINE;
+		this.bannerCanvas.AddChild(cols);
+
+		local rowY = topY + 48;
+		local rowNum = 0;
+		foreach (p in players) {
+			if (p.team != team) {
+				continue;
+			}
+			local name = p.name;
+			if (name.len() > 22) {
+				name = name.slice(0, 22);
+			}
+			local line = name + "    " + p.points + "    " + p.kills + "    " + p.deaths;
+			local row = GUILabel(VectorScreen(leftX + 8, rowY + rowNum * 20), teamColour, line);
+			row.FontSize = 12;
+			row.FontFlags = GUI_FFLAG_OUTLINE;
+			row.Size = VectorScreen(tableW, 18);
+			this.bannerCanvas.AddChild(row);
+			rowNum++;
+			if (rowNum >= 8) {
+				break;
+			}
+		}
+		if (rowNum == 0) {
+			local empty = GUILabel(VectorScreen(leftX + 8, rowY), COL_WHITE, "(no players)");
+			empty.FontSize = 12;
+			this.bannerCanvas.AddChild(empty);
+		}
 	}
 
 	function onResize(res) {
