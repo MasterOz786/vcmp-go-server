@@ -33,11 +33,16 @@ class StreamsController {
 		} else if (type == Packets.SHOW_PACKS) {
 			local team = stream.ReadInt();
 			local currentPack = stream.ReadInt();
-			sprites.showPacksSprite();
 			windows.packsWindow.createWindow(team, currentPack);
 		} else if (type == Packets.HIDE_PACKS) {
-			sprites.hidePacksSprite();
 			windows.packsWindow.clear();
+		} else if (type == Packets.PACK_FEEDBACK) {
+			local msg = stream.ReadString();
+			if (msg == "") {
+				windows.packsWindow.clear();
+			} else {
+				windows.packsWindow.setStatus(msg);
+			}
 		} else if (type == Packets.LOBBY_LEADERBOARD) {
 			local mode = stream.ReadInt();
 			if (mode < 0) {
@@ -88,7 +93,6 @@ class StreamsController {
 					deaths = stream.ReadInt(),
 				});
 			}
-			sprites.hidePacksSprite();
 			windows.packsWindow.clear();
 			windows.roundScoreboard.show(winnerTeam, escortScore, defendScore, reason, players);
 		}

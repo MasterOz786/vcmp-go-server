@@ -3,21 +3,24 @@ package safari
 import (
 	"fmt"
 	"os"
+
+	"github.com/masteroz/vcmp-go-server/safari/gameplay"
+	"github.com/masteroz/vcmp-go-server/safari/persist"
 )
 
 // Engine runs all gameplay on the VC:MP callback thread (Flag Raids style).
 // Only SQLite I/O uses a background worker with in-memory caches.
 type Engine struct {
 	api        API
-	db         *DBWorker
+	db         *persist.DBWorker
 	cfg        Config
 	mapCfg     MapConfig
 	serverName string
 	gameMode   string
 
-	round   *Round
-	teams   *Teams
-	marking *Marking
+	round   *gameplay.Round
+	teams   *gameplay.Teams
+	marking *gameplay.Marking
 
 	loadoutRetries    map[int]int
 	autostartEnabled  bool
@@ -26,7 +29,7 @@ type Engine struct {
 	hydraCameraAccum  float32
 }
 
-func NewEngine(api API, db *DBWorker, cfg Config, mapCfg MapConfig, serverName, gameMode string) *Engine {
+func NewEngine(api API, db *persist.DBWorker, cfg Config, mapCfg MapConfig, serverName, gameMode string) *Engine {
 	autostart := cfg.AutoStartPlayers > 0
 	return &Engine{
 		api:              api,
@@ -35,22 +38,22 @@ func NewEngine(api API, db *DBWorker, cfg Config, mapCfg MapConfig, serverName, 
 		mapCfg:           mapCfg,
 		serverName:       serverName,
 		gameMode:         gameMode,
-		round:            NewRound(),
-		teams:            NewTeams(),
-		marking:          NewMarking(cfg.MarkCooldownSec),
+		round:            gameplay.NewRound(),
+		teams:            gameplay.NewTeams(),
+		marking:          gameplay.NewMarking(cfg.MarkCooldownSec),
 		autostartEnabled: autostart,
 	}
 }
 
 func (e *Engine) configureServer() {
-	e.api.SetServerOption(int(ServerOptionUseClasses), true)
-	e.api.SetServerOption(int(ServerOptionJoinMessages), false)
-	e.api.SetServerOption(int(ServerOptionDeathMessages), false)
-	e.api.SetServerOption(int(ServerOptionDisableDriveBy), e.cfg.DisableDriveBy)
-	e.api.SetServerOption(int(ServerOptionFastSwitch), e.cfg.FastSwitch)
-	e.api.SetServerOption(int(ServerOptionStuntBike), e.cfg.StuntBike)
-	e.api.SetServerOption(int(ServerOptionWallGlitch), e.cfg.WallGlitch)
-	e.api.SetServerOption(int(ServerOptionDisableHeliBladeDamage), e.cfg.DisableHeliBladeDmg)
+	e.api.SetServerOption(int(gameplay.ServerOptionUseClasses), true)
+	e.api.SetServerOption(int(gameplay.ServerOptionJoinMessages), false)
+	e.api.SetServerOption(int(gameplay.ServerOptionDeathMessages), false)
+	e.api.SetServerOption(int(gameplay.ServerOptionDisableDriveBy), e.cfg.DisableDriveBy)
+	e.api.SetServerOption(int(gameplay.ServerOptionFastSwitch), e.cfg.FastSwitch)
+	e.api.SetServerOption(int(gameplay.ServerOptionStuntBike), e.cfg.StuntBike)
+	e.api.SetServerOption(int(gameplay.ServerOptionWallGlitch), e.cfg.WallGlitch)
+	e.api.SetServerOption(int(gameplay.ServerOptionDisableHeliBladeDamage), e.cfg.DisableHeliBladeDmg)
 	e.teams.SetupClasses(e.api, e.mapCfg)
 	lobby := e.cfg.LobbyPosition(e.mapCfg)
 	if lobby.X != 0 || lobby.Y != 0 || lobby.Z != 0 {
@@ -67,10 +70,10 @@ func (e *Engine) OnServerStart() {
 	} else {
 		e.api.Log("[safari] store/script/main.nut found — clients download it on connect (F8 shows load message)")
 	}
-	if _, err := os.Stat(hydraVehicleArchive); err != nil {
-		e.api.Log("[safari] WARNING: " + hydraVehicleArchive + " not found — Hydra will spawn as a default helicopter until you add the custom vehicle")
+	if _, err := os.Stat(gameplay.HydraVehicleArchive); err != nil {
+		e.api.Log("[safari] WARNING: " + gameplay.HydraVehicleArchive + " not found — Hydra will spawn as a default helicopter until you add the custom vehicle")
 	} else {
-		e.api.Log("[safari] custom Hydra vehicle found at " + hydraVehicleArchive)
+		e.api.Log("[safari] custom Hydra vehicle found at " + gameplay.HydraVehicleArchive)
 	}
 	e.api.Log("[safari] server ready — Project Safari: Hydra Warfare (direct callbacks)")
 	go func() {
@@ -260,7 +263,7 @@ func (e *Engine) persistRound(winnerTeam int) {
 		defendShare = e.round.Score.DefendScore / defendN
 	}
 
-	var records []RoundPlayerRecord
+	var records []persist.RoundPlayerRecord
 	for _, i := range e.teams.ConnectedIDs() {
 		if !e.api.IsConnected(i) {
 			continue
@@ -270,7 +273,7 @@ func (e *Engine) persistRound(winnerTeam int) {
 			continue
 		}
 		team := e.teams.Team(i)
-		rec := RoundPlayerRecord{UID: uid, Team: team}
+		rec := persist.RoundPlayerRecord{UID: uid, Team: team}
 		if team == TeamEscort {
 			rec.EscortPts = escortShare
 		} else if team == TeamDefend {
@@ -278,13 +281,13 @@ func (e *Engine) persistRound(winnerTeam int) {
 		}
 		records = append(records, rec)
 	}
-	e.db.Enqueue(recordRoundJob{
-		players:      records,
-		winnerTeam:   winnerTeam,
-		escortScore:  e.round.Score.EscortScore,
-		defendScore:  e.round.Score.DefendScore,
-		survivedSecs: e.round.SurvivedSecs(),
-	})
+	e.db.EnqueueRecordRound(
+		records,
+		winnerTeam,
+		e.round.Score.EscortScore,
+		e.round.Score.DefendScore,
+		e.round.SurvivedSecs(),
+	)
 }
 
 func (e *Engine) initialPack(uid string) int {
@@ -339,7 +342,7 @@ func (e *Engine) retryPendingLoadouts() {
 			continue
 		}
 		pack := e.teams.Pack(playerID)
-		if LoadoutComplete(e.api, playerID, team, pack) {
+		if gameplay.LoadoutComplete(e.api, playerID, team, pack) {
 			delete(e.loadoutRetries, playerID)
 			continue
 		}
@@ -357,7 +360,7 @@ func (e *Engine) enforcePlayerWeapons(playerID int) {
 	if team == 0 {
 		return
 	}
-	EnforceAllowed(e.api, playerID, team, e.teams.Pack(playerID))
+	gameplay.EnforceAllowed(e.api, playerID, team, e.teams.Pack(playerID))
 }
 
 func (e *Engine) applyPlayerLoadout(playerID int) {
@@ -366,8 +369,8 @@ func (e *Engine) applyPlayerLoadout(playerID int) {
 		return
 	}
 	pack := e.teams.Pack(playerID)
-	ApplyLoadout(e.api, playerID, team, pack)
-	EnforceAllowed(e.api, playerID, team, pack)
+	gameplay.ApplyLoadout(e.api, playerID, team, pack)
+	gameplay.EnforceAllowed(e.api, playerID, team, pack)
 }
 
 func (e *Engine) OnConnect(playerID int) {
@@ -375,7 +378,7 @@ func (e *Engine) OnConnect(playerID int) {
 	uid := e.api.PlayerUID(playerID)
 	name := e.api.PlayerName(playerID)
 	if uid != "" {
-		e.db.Enqueue(upsertPlayerJob{uid: uid, name: name})
+		e.db.EnqueueUpsertPlayer(uid, name)
 		e.db.PrefetchPreferredPack(uid)
 		e.db.PrefetchStats(uid)
 		e.db.PrefetchRegistered(uid)
@@ -393,7 +396,7 @@ func (e *Engine) OnConnect(playerID int) {
 		}
 	}
 	mode := LobbyLeaderboardWorldOnly
-	if sess := e.teams.session(playerID); sess != nil && sess.LeaderboardVisible {
+	if sess := e.teams.Session(playerID); sess != nil && sess.LeaderboardVisible {
 		mode = LobbyLeaderboardWithOverlay
 	}
 	e.SendLobbyLeaderboard(playerID, mode)
@@ -440,11 +443,11 @@ func (e *Engine) OnSpawn(playerID int) {
 func (e *Engine) OnDeath(playerID, killerID int) {
 	e.teams.AdvanceSpawn(playerID)
 	e.scheduleLoadoutRetry(playerID)
-	if s := e.teams.session(playerID); s != nil {
+	if s := e.teams.Session(playerID); s != nil {
 		s.RoundDeaths++
 	}
 	if killerID >= 0 && e.api.IsConnected(killerID) {
-		if ks := e.teams.session(killerID); ks != nil {
+		if ks := e.teams.Session(killerID); ks != nil {
 			ks.RoundKills++
 		}
 	}
@@ -500,7 +503,7 @@ func (e *Engine) OnPlayerEnterVehicle(playerID, vehicleID, slot int) {
 	if !e.isHydraVehicle(vehicleID) {
 		return
 	}
-	s := e.teams.session(playerID)
+	s := e.teams.Session(playerID)
 	if s != nil {
 		s.HydraCameraMode = HydraCamDefault
 	}
@@ -515,7 +518,7 @@ func (e *Engine) OnPlayerExitVehicle(playerID, vehicleID int) {
 }
 
 func (e *Engine) HandleEnterVehicleRequest(playerID, vehicleID, slot int) bool {
-	s := e.teams.session(playerID)
+	s := e.teams.Session(playerID)
 	if s != nil && s.TestHydraVehicleID == vehicleID {
 		return true
 	}

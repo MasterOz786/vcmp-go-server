@@ -3,7 +3,12 @@ package safari
 import (
 	"encoding/json"
 	"os"
+
+	"github.com/masteroz/vcmp-go-server/safari/apidef"
 )
+
+type Vec3 = apidef.Vec3
+type MapConfig = apidef.MapConfig
 
 const (
 	defaultConfigFile = "safari.json"
@@ -28,16 +33,6 @@ type Config struct {
 	HydraModel          int      `json:"hydra_model"`
 	AdminNames          []string `json:"admin_names"`
 	AdminUIDs           []string `json:"admin_uids"`
-}
-
-type MapConfig struct {
-	LobbySpawn   *Vec3  `json:"lobby_spawn"`
-	HydraStart   Vec3   `json:"hydra_start"`
-	HydraAngle   float32 `json:"hydra_angle"`
-	World        int    `json:"world"`
-	Waypoints    []Vec3 `json:"waypoints"`
-	EscortSpawns []Vec3 `json:"escort_spawns"`
-	DefendSpawns []Vec3 `json:"defend_spawns"`
 }
 
 func DefaultConfig() Config {

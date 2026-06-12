@@ -24,6 +24,14 @@ class ClickHandler {
 					return;
 				}
 			}
+			if (element.Text != null && element.Text.find("pack") != null) {
+				local t = element.Text;
+				local n = t.slice(t.find("pack") + 4, t.find("pack") + 5).tointeger();
+				if (n >= 1 && n <= 3) {
+					windows.packsWindow.selectPack(n);
+					return;
+				}
+			}
 		}
 	}
 }

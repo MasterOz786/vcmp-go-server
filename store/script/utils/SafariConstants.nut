@@ -13,6 +13,7 @@ Packets <- {
 	"ROUND_END_STATS": 102,
 	"REQUEST_SHOW_PACKS": 103,
 	"LOBBY_LEADERBOARD": 104,
+	"PACK_FEEDBACK": 105,
 };
 
 HydraCam <- {

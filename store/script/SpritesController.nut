@@ -11,10 +11,9 @@ class SpritesController {
 		if (packsSprite != null) {
 			return;
 		}
-		local x = res.X / 2;
-		local y = res.Y / 2;
-		local v = VectorScreen(x - (370 / 2), y - (420 / 2));
-		packsSprite = GUISprite("packs.jpg", v);
+		local f = PackUI.frame(res);
+		packsSprite = GUISprite("packs.jpg", VectorScreen(f.x, f.y));
+		packsSprite.Size = VectorScreen(f.w, f.h);
 	}
 
 	function hidePacksSprite() {
@@ -28,8 +27,8 @@ class SpritesController {
 		if (packsSprite == null) {
 			return;
 		}
-		local x = newres.X / 2;
-		local y = newres.Y / 2;
-		packsSprite.Position = VectorScreen(x - (370 / 2), y - (420 / 2));
+		local f = PackUI.frame(newres);
+		packsSprite.Position = VectorScreen(f.x, f.y);
+		packsSprite.Size = VectorScreen(f.w, f.h);
 	}
 }
