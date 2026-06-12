@@ -3,20 +3,20 @@ dofile("utils/SafariConstants.nut");
 dofile("utils/SafariTheme.nut");
 dofile("utils/PackDefinitions.nut");
 dofile("components/PackPickerComponent.nut");
+dofile("components/LeaderboardComponent.nut");
+dofile("components/WorldScoreboardComponent.nut");
+dofile("components/RoundEndComponent.nut");
+dofile("components/RegisterComponent.nut");
 dofile("HydraCamera.nut");
 dofile("ScoreboardHUD.nut");
-dofile("SpritesController.nut");
 dofile("WindowsController.nut");
 dofile("StreamsController.nut");
-dofile("ClickHandler.nut");
 
 local screen = GUI.GetScreenSize();
 scoreboard <- ScoreboardHUD;
 scoreboard.init(screen);
-sprites <- SpritesController(screen);
 windows <- WindowsController(screen);
-streams <- StreamsController(windows, sprites);
-clicks <- ClickHandler(windows);
+streams <- StreamsController(windows);
 packsKey <- null;
 
 function Script::ScriptUnload() {
@@ -40,6 +40,7 @@ function Script::ScriptUnload() {
 			windows.registerWindow.clear();
 		}
 	}
+	scoreboard.hide();
 	if ("Timer" in getroottable() && Timer.Timers != null) {
 		Timer.Timers.clear();
 	}
@@ -67,18 +68,12 @@ function Server::ServerData(stream) {
 
 function GUI::InputReturn(editbox) {
 	UI.events.onInputReturn(editbox);
-	if (windows.registerWindow != null && windows.registerWindow.passwordInput != null) {
-		if (windows.registerWindow.passwordInput == editbox) {
-			windows.registerWindow.register();
-		}
-	}
 }
 
 function GUI::GameResize(width, height) {
 	UI.events.onGameResize();
 	local v = VectorScreen(width, height);
 	scoreboard.onResize(v);
-	sprites.updatePositions(v);
 	windows.packsWindow.updatePositions(v);
 	windows.roundScoreboard.onResize(v);
 	windows.lobbyLeaderboard.onResize(v);
@@ -87,7 +82,6 @@ function GUI::GameResize(width, height) {
 
 function GUI::ElementClick(element, mouseX, mouseY) {
 	UI.events.onClick(element, mouseX, mouseY);
-	clicks.handleClick(element, mouseX, mouseY);
 }
 
 function GUI::ElementFocus(element) {

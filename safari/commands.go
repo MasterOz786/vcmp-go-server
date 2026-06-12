@@ -138,36 +138,36 @@ func (e *Engine) HandleCommand(playerID int, raw string) CommandResult {
 }
 
 func (e *Engine) sendHelp(playerID int) {
+	e.api.Send(playerID, ColourCyan, "=== Project Safari: Hydra Warfare ===")
 	lines := []string{
-		"Project Safari: Hydra Warfare",
-		"/pack 1|2|3 — choose loadout (keys 1-3)",
-		"/mark [name] — Escort: designate target",
-		"/testhydra — spawn test Hydra and warp in",
-		"/testhydra stop — remove your test Hydra",
-		"/hydraview or H — cycle Hydra camera",
-		"/getpos [name] — your position (or another player's)",
-		"/lobby — warp to the lobby spawn",
-		"/scoreboard — show live round HUD",
-		"/scoreboard end — show round stats overlay (P to close)",
-		"/scoreboard hide — hide scoreboard UI",
-		"/leaderboard — toggle all-time leaderboard UI",
-		"/gotopos <x> <y> <z> — admin: warp to coordinates",
-		"/getvehicle <id> — admin: vehicle position and stats",
-		"P — weapon pack picker (also closes UI)",
-		"/status — round info",
-		"/stats — your persistent stats",
-		"/register — open registration window",
-		"/startsafari — admin: start round",
-		"/stopsafari — admin: stop round",
-		"/pausesafari — admin: pause/resume round",
-		"/autostart on|off — admin: toggle autostart",
-		"/wep <id> [ammo] — admin: give weapon",
-		"/reload — admin: reload config/map from disk",
-		"/reload scripts — admin: kick all (refresh client script)",
-		"/reload server — admin: rebuild plugin and restart server",
+		"/pack 1|2|3 - choose loadout (keys 1-3)",
+		"/mark [name] - Escort: designate target",
+		"/testhydra - spawn test Hydra and warp in",
+		"/testhydra stop - remove your test Hydra",
+		"/hydraview or H - cycle Hydra camera",
+		"/getpos [name] - your position (or another player)",
+		"/lobby - warp to the lobby spawn",
+		"/scoreboard - show live round HUD",
+		"/scoreboard end - round stats overlay (P to close)",
+		"/scoreboard hide - hide scoreboard UI",
+		"/leaderboard or /leaderboards - toggle leaderboard UI",
+		"/status - round info",
+		"/stats - your persistent stats",
+		"/register - open registration window",
+		"P - weapon pack picker (also closes UI)",
+		"/startsafari - admin: start round",
+		"/stopsafari - admin: stop round",
+		"/pausesafari - admin: pause/resume round",
+		"/autostart on|off - admin: toggle autostart",
+		"/gotopos <x> <y> <z> - admin: warp to coordinates",
+		"/getvehicle <id> - admin: vehicle info",
+		"/wep <id> [ammo] - admin: give weapon",
+		"/reload - admin: reload config/map from disk",
+		"/reload scripts - admin: kick all (refresh client script)",
+		"/reload server - admin: rebuild plugin and restart server",
 	}
 	for _, l := range lines {
-		e.api.Send(playerID, ColourWhite, l)
+		e.api.Send(playerID, ColourYellow, l)
 	}
 }
 

@@ -1,20 +1,15 @@
 class StreamsController {
 	windows = null;
-	sprites = null;
 
-	constructor(windows, sprites) {
+	constructor(windows) {
 		this.windows = windows;
-		this.sprites = sprites;
 	}
 
 	function process(stream) {
 		local type = stream.ReadInt();
 
 		if (type == Packets.HIDE_REGISTER) {
-			if (windows.registerWindow != null && windows.registerWindow.registerBtn != null) {
-				GUI.SetFocusedElement(windows.registerWindow.registerBtn);
-				windows.registerWindow.clear();
-			}
+			windows.registerWindow.clear();
 		} else if (type == Packets.SHOW_REGISTER) {
 			windows.registerWindow.createWindow();
 		} else if (type == Packets.HYDRA_CAM) {

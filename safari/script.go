@@ -477,7 +477,7 @@ func (e *Engine) ToggleLobbyLeaderboard(playerID int) {
 	sess.LeaderboardVisible = true
 	escort, defend := e.leaderboardRows()
 	e.api.Send(playerID, ColourGreen, fmt.Sprintf(
-		"Leaderboard open — %d escort, %d defend entries.",
+		"Leaderboard open - %d escort, %d defend entries.",
 		len(escort), len(defend),
 	))
 }
