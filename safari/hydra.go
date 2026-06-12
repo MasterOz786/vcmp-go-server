@@ -10,6 +10,8 @@ import (
 	"github.com/masteroz/vcmp-go-server/safari/gameplay"
 )
 
+const hydraCameraUpdateInterval = float32(0.2) // 5 Hz
+
 var hydraCameraNames = []string{
 	"Pilot (default)",
 	"Chase cam",
