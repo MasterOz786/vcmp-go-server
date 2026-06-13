@@ -177,7 +177,10 @@ func (t *Teams) Welcome(api apidef.API, playerID int) {
 	if team == apidef.TeamDefend {
 		colour = apidef.ColourRed
 	}
-	api.Send(playerID, colour, fmt.Sprintf("Project Safari: you are on team %s. Use /pack 1|2 and /help.", t.RoleName(team)))
+	api.Send(playerID, colour, fmt.Sprintf(
+		"Project Safari: you are on team %s. Press P or /pack 1-%d to choose loadout. /help for commands.",
+		t.RoleName(team), apidef.MaxPack,
+	))
 }
 
 func (t *Teams) TeleportToSpawns(api apidef.API, mapCfg apidef.MapConfig) {

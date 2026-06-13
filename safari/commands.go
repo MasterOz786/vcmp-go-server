@@ -160,7 +160,7 @@ func (e *Engine) sendHelp(playerID int) {
 		"/pausesafari - admin: pause/resume round",
 		"/autostart on|off - admin: toggle autostart",
 		"/gotopos <x> <y> <z> - admin: warp to coordinates",
-		"/getvehicle <id> - admin: vehicle info",
+		"/getvehicle <model id> - admin: vehicle info by model (no args lists all)",
 		"/wep <id> [ammo] - admin: give weapon",
 		"/reload - admin: reload config/map from disk",
 		"/reload scripts - admin: kick all (refresh client script)",
@@ -376,32 +376,101 @@ func (e *Engine) cmdGoToPos(playerID int, args []string) CommandResult {
 	return CommandResult{Handled: true, Deny: true}
 }
 
+func (e *Engine) activeVehicleIDs() []int {
+	const maxScan = 200
+	var ids []int
+	for id := 0; id < maxScan; id++ {
+		if e.api.VehicleExists(id) {
+			ids = append(ids, id)
+		}
+	}
+	return ids
+}
+
+func (e *Engine) vehiclesByModel(modelID int) []int {
+	var matches []int
+	for _, id := range e.activeVehicleIDs() {
+		if e.api.VehicleModel(id) == modelID {
+			matches = append(matches, id)
+		}
+	}
+	return matches
+}
+
+func (e *Engine) vehicleSummary(vehicleID int) string {
+	pos := e.api.VehiclePos(vehicleID)
+	rot := e.api.VehicleRotationEuler(vehicleID)
+	model := e.api.VehicleModel(vehicleID)
+	hp := e.api.VehicleHealth(vehicleID)
+	return fmt.Sprintf(
+		"model %d (slot %d) | HP %.0f | pos %.2f, %.2f, %.2f | rot %.2f, %.2f, %.2f",
+		model, vehicleID, hp, pos.X, pos.Y, pos.Z, rot.X, rot.Y, rot.Z,
+	)
+}
+
+func (e *Engine) activeModelIDs() []int {
+	seen := map[int]bool{}
+	var models []int
+	for _, id := range e.activeVehicleIDs() {
+		m := e.api.VehicleModel(id)
+		if !seen[m] {
+			seen[m] = true
+			models = append(models, m)
+		}
+	}
+	return models
+}
+
+func (e *Engine) resolveVehicleQuery(arg string) (slots []int, label, errMsg string) {
+	modelID, err := strconv.Atoi(strings.TrimSpace(arg))
+	if err != nil || modelID < 0 {
+		return nil, "", "Invalid model id. Usage: /getvehicle <model id>"
+	}
+	if matches := e.vehiclesByModel(modelID); len(matches) > 0 {
+		return matches, fmt.Sprintf("model %d", modelID), ""
+	}
+	active := e.activeModelIDs()
+	if len(active) == 0 {
+		return nil, "", fmt.Sprintf("Model %d not found. No active server vehicles.", modelID)
+	}
+	return nil, "", fmt.Sprintf("Model %d not found. Active models: %v", modelID, active)
+}
+
 func (e *Engine) cmdGetVehicle(playerID int, args []string) CommandResult {
 	if !e.isAdmin(playerID) {
 		e.api.Send(playerID, ColourRed, "Admin only.")
 		return CommandResult{Handled: true, Deny: true}
 	}
 	if len(args) < 1 {
-		e.api.Send(playerID, ColourYellow, "Usage: /getvehicle <id>")
+		ids := e.activeVehicleIDs()
+		if len(ids) == 0 {
+			e.api.Send(playerID, ColourRed, "No active server vehicles. Start a round or /testhydra first.")
+			return CommandResult{Handled: true, Deny: true}
+		}
+		e.api.Send(playerID, ColourCyan, fmt.Sprintf("Active server vehicles (%d):", len(ids)))
+		for _, id := range ids {
+			e.api.Send(playerID, ColourWhite, e.vehicleSummary(id))
+		}
+		e.api.Send(playerID, ColourYellow, "Usage: /getvehicle <model id>")
 		return CommandResult{Handled: true, Deny: true}
 	}
-	vehicleID, err := strconv.Atoi(args[0])
-	if err != nil || vehicleID < 0 {
-		e.api.Send(playerID, ColourYellow, "Vehicle id must be zero or greater.")
+
+	slots, label, errMsg := e.resolveVehicleQuery(args[0])
+	if errMsg != "" {
+		e.api.Send(playerID, ColourRed, errMsg)
 		return CommandResult{Handled: true, Deny: true}
 	}
-	if !e.api.VehicleExists(vehicleID) {
-		e.api.Send(playerID, ColourRed, fmt.Sprintf("Vehicle %d does not exist.", vehicleID))
-		return CommandResult{Handled: true, Deny: true}
+
+	if len(slots) > 1 {
+		e.api.Send(playerID, ColourCyan, fmt.Sprintf("Matched %d vehicles for %s:", len(slots), label))
 	}
-	pos := e.api.VehiclePos(vehicleID)
-	rot := e.api.VehicleRotationEuler(vehicleID)
-	model := e.api.VehicleModel(vehicleID)
-	hp := e.api.VehicleHealth(vehicleID)
-	e.api.Send(playerID, ColourCyan, fmt.Sprintf(
-		"Vehicle %d — model %d | HP %.0f | pos %.2f, %.2f, %.2f | rot %.2f, %.2f, %.2f",
-		vehicleID, model, hp, pos.X, pos.Y, pos.Z, rot.X, rot.Y, rot.Z,
-	))
+	for _, id := range slots {
+		summary := e.vehicleSummary(id)
+		if label != "" && len(slots) == 1 {
+			summary += " (" + label + ")"
+		}
+		e.api.Send(playerID, ColourCyan, summary)
+	}
 	return CommandResult{Handled: true, Deny: true}
 }
 
