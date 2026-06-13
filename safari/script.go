@@ -78,6 +78,8 @@ func (e *Engine) HandleClientScriptData(playerID int, data []byte) {
 		e.handleSelectPack(playerID, int(pack))
 	case stream.PacketRequestShowPacks:
 		e.handleRequestShowPacks(playerID)
+	case stream.PacketRequestHideLeaderboard:
+		e.HideLobbyLeaderboard(playerID)
 	case stream.PacketRequestRegisterUI:
 		uid := e.api.PlayerUID(playerID)
 		if uid != "" {
@@ -460,6 +462,15 @@ func (e *Engine) RefreshLobbyLeaderboard() {
 	e.refreshLeaderboardCache()
 }
 
+func (e *Engine) HideLobbyLeaderboard(playerID int) {
+	e.ensurePlayerSession(playerID)
+	sess := e.teams.Session(playerID)
+	if sess != nil {
+		sess.LeaderboardVisible = false
+	}
+	e.SendHideLobbyLeaderboard(playerID)
+}
+
 func (e *Engine) ToggleLobbyLeaderboard(playerID int) {
 	e.ensurePlayerSession(playerID)
 	sess := e.teams.Session(playerID)
@@ -467,9 +478,8 @@ func (e *Engine) ToggleLobbyLeaderboard(playerID int) {
 		return
 	}
 	if sess.LeaderboardVisible {
-		e.SendHideLobbyLeaderboard(playerID)
-		sess.LeaderboardVisible = false
-		e.api.Send(playerID, ColourGreen, "Leaderboard overlay closed. 3D boards remain at lobby.")
+		e.HideLobbyLeaderboard(playerID)
+		e.api.Send(playerID, ColourGreen, "Leaderboard closed.")
 		return
 	}
 	go e.refreshLeaderboardCache()

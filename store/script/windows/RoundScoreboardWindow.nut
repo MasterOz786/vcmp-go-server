@@ -33,6 +33,10 @@ class RoundScoreboardController {
 		}
 	}
 
+	function hasLobbyBoards() {
+		return this.escortBoard != null || this.defendBoard != null;
+	}
+
 	function hide() {
 		this.hideBoards();
 		this.hideBanner();

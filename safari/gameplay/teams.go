@@ -6,10 +6,10 @@ import (
 	"github.com/masteroz/vcmp-go-server/safari/apidef"
 )
 
-// Spawn-screen skin models per team (class index 0–3).
+// Spawn-screen skin models per team (class index 0–1). Taxi driver skins.
 var (
-	EscortSkins = []int{0, 1, 2, 9}
-	DefendSkins = []int{9, 28, 47, 57}
+	EscortSkins = []int{133, 134}
+	DefendSkins = []int{133, 134}
 )
 
 func clampSkinIndex(idx int) int {

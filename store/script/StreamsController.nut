@@ -42,6 +42,7 @@ class StreamsController {
 			local mode = stream.ReadInt();
 			if (mode < 0) {
 				windows.lobbyLeaderboard.hideOverlay();
+				windows.roundScoreboard.hideBoards();
 				return;
 			}
 			local escortCount = stream.ReadInt();

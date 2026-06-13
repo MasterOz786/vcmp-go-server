@@ -100,14 +100,26 @@ function GUI::ElementHoverOut(element) {
 	UI.events.onHoverOut(element);
 }
 
+function closeLeaderboards() {
+	local s = Stream();
+	s.WriteInt(Packets.REQUEST_HIDE_LEADERBOARD);
+	Server.SendData(s);
+	windows.lobbyLeaderboard.hideOverlay();
+	windows.roundScoreboard.hideBoards();
+}
+
+function leaderboardOpen() {
+	return windows.lobbyLeaderboard.visible || windows.roundScoreboard.hasLobbyBoards();
+}
+
 function KeyBind::OnDown(bind) {
 	if (SafariHydraCam.hydraKey != null && bind == SafariHydraCam.hydraKey) {
 		SafariHydraCam.requestCycle();
 		return;
 	}
 	if (packsKey != null && bind == packsKey) {
-		if (windows.lobbyLeaderboard.visible) {
-			windows.lobbyLeaderboard.hideOverlay();
+		if (leaderboardOpen()) {
+			closeLeaderboards();
 			return;
 		}
 		if (windows.roundScoreboard.visible) {

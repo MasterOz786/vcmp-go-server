@@ -148,7 +148,7 @@ func (e *Engine) sendHelp(playerID int) {
 	e.api.Send(playerID, ColourCyan, "=== Project Safari: Hydra Warfare ===")
 	lines := []string{
 		apidef.PackCommandHelpLine(),
-		"/skin 1|2|3|4 - choose character skin (spawn screen class)",
+		apidef.SkinCommandHelpLine(),
 		"/switch [escort|defend] - switch team (admin: /switch <player> [team])",
 		"/mark [name] - Escort: designate target",
 		"/testhydra - spawn test Hydra and warp in",

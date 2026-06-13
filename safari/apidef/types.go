@@ -3,7 +3,7 @@ package apidef
 const (
 	MaxPlayers = 100
 	MaxPack    = 3
-	MaxSkin    = 4 // spawn-screen class slots per team (indices 0–3)
+	MaxSkin    = 2 // spawn-screen class slots per team (indices 0–1)
 
 	TeamEscort = 1
 	TeamDefend = 2

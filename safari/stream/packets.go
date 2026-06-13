@@ -20,4 +20,5 @@ const (
 	PacketRequestShowPacks   = 103 // client → server open pack picker
 	PacketLobbyLeaderboard   = 104 // server → client 3D lobby leaderboard boards
 	PacketPackFeedback       = 105 // server → client pack UI status
+	PacketRequestHideLeaderboard = 106 // client → server close leaderboard UI
 )
