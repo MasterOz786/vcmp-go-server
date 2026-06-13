@@ -17,6 +17,7 @@ type API interface {
 	PlayerUID(playerID int) string
 	PlayerTeam(playerID int) int
 	SetPlayerTeam(playerID, team int)
+	PlayerClass(playerID int) int
 	PlayerSkin(playerID int) int
 	SetPlayerSkin(playerID, skinID int) error
 	SetPlayerScore(playerID, score int)
@@ -34,6 +35,8 @@ type API interface {
 	SetGameModeText(text string)
 	SetServerOption(option int, on bool)
 	SetSpawnPos(pos Vec3)
+	SetSpawnCameraPosition(pos Vec3)
+	SetSpawnCameraLookAt(pos Vec3)
 	AddPlayerClass(teamID int, colour uint32, model int, pos Vec3, angle float32, weapons [6]int)
 
 	CreateVehicle(model, world int, pos Vec3, angle float32, c1, c2 int) int

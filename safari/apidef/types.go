@@ -7,6 +7,7 @@ const (
 
 	TeamEscort = 1
 	TeamDefend = 2
+	TeamNone   = 255 // VC:MP unassigned — used for lobby skin-only classes
 
 	HydraModel = 6460
 	HydraMaxHP = 1000.0

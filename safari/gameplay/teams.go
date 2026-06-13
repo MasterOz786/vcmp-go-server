@@ -307,10 +307,15 @@ func (t *Teams) AdvanceSpawn(playerID int) {
 func (t *Teams) CountEscort() int { return t.countEscort }
 func (t *Teams) CountDefend() int { return t.countDefend }
 
-func (t *Teams) AllowClassRequest(playerID, classIndex int, roundActive bool) bool {
-	if classIndex < 0 || classIndex >= apidef.MaxSkin {
-		return false
-	}
+func (t *Teams) AllowClassRequest(playerID, classOffset int, roundActive bool) bool {
+	// VC:MP passes a navigation offset on the spawn screen — never block browsing.
+	_ = playerID
+	_ = classOffset
+	_ = roundActive
+	return true
+}
+
+func (t *Teams) AllowSpawnRequest(playerID int, roundActive bool) bool {
 	if !roundActive {
 		return true
 	}
@@ -325,6 +330,73 @@ func (t *Teams) AllowClassRequest(playerID, classIndex int, roundActive bool) bo
 		return t.countDefend <= t.countEscort
 	}
 	return true
+}
+
+func TeamAndSkinFromClass(classID int) (team, skin int) {
+	if classID < 0 {
+		return 0, 0
+	}
+	if classID >= apidef.MaxSkin {
+		return apidef.TeamDefend, clampSkinIndex(classID - apidef.MaxSkin)
+	}
+	return apidef.TeamEscort, clampSkinIndex(classID)
+}
+
+func (t *Teams) SyncFromSpawnScreen(api apidef.API, playerID int, classHint int) {
+	s := t.sessions[playerID]
+	if s == nil {
+		return
+	}
+
+	classID := classHint
+	if classHint == -1 || classHint == 1 {
+		classID = s.SkinIndex
+		if s.Team == apidef.TeamDefend {
+			classID += apidef.MaxSkin
+		}
+		classID += classHint
+		if classID < 0 {
+			classID = apidef.MaxSkin*2 - 1
+		}
+		if classID >= apidef.MaxSkin*2 {
+			classID = 0
+		}
+	} else if classHint < 0 {
+		classID = api.PlayerClass(playerID)
+	}
+
+	team := api.PlayerTeam(playerID)
+	skin := clampSkinIndex(classID)
+
+	if classHint == -1 || classHint == 1 || (classHint >= 0 && classHint < apidef.MaxSkin*2) {
+		team, skin = TeamAndSkinFromClass(classID)
+	} else if team != apidef.TeamEscort && team != apidef.TeamDefend {
+		team, skin = TeamAndSkinFromClass(classID)
+	} else if classID >= apidef.MaxSkin {
+		skin = clampSkinIndex(classID - apidef.MaxSkin)
+	}
+
+	if team != apidef.TeamEscort && team != apidef.TeamDefend {
+		return
+	}
+
+	if s.Team != team {
+		switch s.Team {
+		case apidef.TeamEscort:
+			t.countEscort--
+		case apidef.TeamDefend:
+			t.countDefend--
+		}
+		switch team {
+		case apidef.TeamEscort:
+			t.countEscort++
+		case apidef.TeamDefend:
+			t.countDefend++
+		}
+		s.Team = team
+		api.SetPlayerTeam(playerID, team)
+	}
+	s.SkinIndex = skin
 }
 
 func (t *Teams) RoleName(team int) string {
@@ -399,26 +471,37 @@ func (t *Teams) SyncScores(api apidef.API, score apidef.Scoring) {
 	}
 }
 
-func (t *Teams) SetupClasses(api apidef.API, mapCfg apidef.MapConfig) {
+func SpawnScreenCamera(lobby apidef.Vec3) (camPos, lookAt apidef.Vec3) {
+	return apidef.Vec3{
+			X: lobby.X - 5,
+			Y: lobby.Y + 4,
+			Z: lobby.Z + 1,
+		}, apidef.Vec3{
+			X: lobby.X + 10,
+			Y: lobby.Y - 12,
+			Z: lobby.Z + 2.5,
+		}
+}
+
+func (t *Teams) SetupClasses(api apidef.API, lobby apidef.Vec3, angle float32) {
 	// Pack weapons are granted by the gamemode; class kits must stay empty.
+	// All class previews use the lobby position so skins render on the spawn screen.
 	weapons := [6]int{0, 0, 0, 0, 0, 0}
-	for i, sp := range mapCfg.EscortSpawns {
-		if i >= apidef.MaxSkin {
-			break
-		}
+	if lobby.X == 0 && lobby.Y == 0 && lobby.Z == 0 {
+		api.Log("[safari] WARNING: lobby spawn unset — spawn-screen skins may not appear")
+	}
+	for i := 0; i < apidef.MaxSkin; i++ {
 		skin := EscortSkins[i%len(EscortSkins)]
-		api.AddPlayerClass(apidef.TeamEscort, 0xFF6EC6FF, skin, sp, 0, weapons)
+		api.AddPlayerClass(apidef.TeamEscort, 0xFFFFE448, skin, lobby, angle, weapons)
 	}
-	for i, sp := range mapCfg.DefendSpawns {
-		if i >= apidef.MaxSkin {
-			break
-		}
+	for i := 0; i < apidef.MaxSkin; i++ {
 		skin := DefendSkins[i%len(DefendSkins)]
-		api.AddPlayerClass(apidef.TeamDefend, 0xFFFF6E6E, skin, sp, 0, weapons)
+		api.AddPlayerClass(apidef.TeamDefend, 0xFFFF78AF, skin, lobby, angle, weapons)
 	}
-	if len(mapCfg.EscortSpawns) > 0 {
-		api.SetSpawnPos(mapCfg.EscortSpawns[0])
-	}
+	api.SetSpawnPos(lobby)
+	camPos, lookAt := SpawnScreenCamera(lobby)
+	api.SetSpawnCameraPosition(camPos)
+	api.SetSpawnCameraLookAt(lookAt)
 }
 
 // ServerOption constants mirrored for API (vcmpServerOptionUseClasses = 18).

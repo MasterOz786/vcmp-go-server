@@ -54,7 +54,7 @@ func (e *Engine) configureServer() {
 	e.api.SetServerOption(int(gameplay.ServerOptionStuntBike), e.cfg.StuntBike)
 	e.api.SetServerOption(int(gameplay.ServerOptionWallGlitch), e.cfg.WallGlitch)
 	e.api.SetServerOption(int(gameplay.ServerOptionDisableHeliBladeDamage), e.cfg.DisableHeliBladeDmg)
-	e.teams.SetupClasses(e.api, e.mapCfg)
+	e.teams.SetupClasses(e.api, e.cfg.LobbyPosition(e.mapCfg), 0)
 	lobby := e.cfg.LobbyPosition(e.mapCfg)
 	if lobby.X != 0 || lobby.Y != 0 || lobby.Z != 0 {
 		e.api.SetSpawnPos(lobby)
@@ -436,14 +436,9 @@ func (e *Engine) OnConnect(playerID int) {
 	e.ensurePlayerSession(playerID)
 	e.syncAdminPrivileges(playerID)
 	e.teams.Welcome(e.api, playerID)
+	e.api.Send(playerID, ColourCyan, "Spawn screen: use ← → to switch team/skin, then spawn.")
 	if e.round.State != RoundIdle {
 		e.BroadcastScoreboard()
-	}
-	if e.round.State == RoundIdle {
-		lobby := e.cfg.LobbyPosition(e.mapCfg)
-		if lobby.X != 0 || lobby.Y != 0 || lobby.Z != 0 {
-			_ = e.api.SetPlayerPosition(playerID, lobby)
-		}
 	}
 	mode := LobbyLeaderboardWorldOnly
 	if sess := e.teams.Session(playerID); sess != nil && sess.LeaderboardVisible {
@@ -581,22 +576,33 @@ func (e *Engine) HandleEnterVehicleRequest(playerID, vehicleID, slot int) bool {
 }
 
 func (e *Engine) HandleRequestSpawn(playerID int) bool {
-	_ = playerID
 	if e.round.State == RoundEnded {
 		return false
+	}
+	e.ensurePlayerSession(playerID)
+	e.teams.SyncFromSpawnScreen(e.api, playerID, -1)
+	if !e.teams.AllowSpawnRequest(playerID, e.round.State == RoundActive) {
+		team := e.teams.Team(playerID)
+		e.api.Send(playerID, ColourYellow,
+			"Team balance does not allow spawning on "+e.teams.RoleName(team)+" right now. Switch team with ← → or /switch.")
+		return false
+	}
+	if uid := e.api.PlayerUID(playerID); uid != "" {
+		e.db.SavePreferredTeam(uid, e.teams.Team(playerID))
+		e.db.SavePreferredSkin(uid, e.teams.SkinIndex(playerID))
 	}
 	return true
 }
 
-func (e *Engine) HandleRequestClass(playerID, classIndex int) bool {
-	if !e.teams.AllowClassRequest(playerID, classIndex, e.round.State == RoundActive) {
+func (e *Engine) HandleRequestClass(playerID, classOffset int) bool {
+	if !e.teams.AllowClassRequest(playerID, classOffset, e.round.State == RoundActive) {
 		return false
 	}
 	e.ensurePlayerSession(playerID)
-	if e.teams.SetSkinIndex(playerID, classIndex) {
-		if uid := e.api.PlayerUID(playerID); uid != "" {
-			e.db.SavePreferredSkin(uid, classIndex)
-		}
+	e.teams.SyncFromSpawnScreen(e.api, playerID, classOffset)
+	if uid := e.api.PlayerUID(playerID); uid != "" {
+		e.db.SavePreferredTeam(uid, e.teams.Team(playerID))
+		e.db.SavePreferredSkin(uid, e.teams.SkinIndex(playerID))
 	}
 	return true
 }

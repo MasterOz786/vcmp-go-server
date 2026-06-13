@@ -97,6 +97,18 @@ func (VCMPAPI) SetSpawnPos(pos Vec3) {
 	vcmp.API.Server.SetSpawnPosition(fromSafariVec3(pos))
 }
 
+func (VCMPAPI) SetSpawnCameraPosition(pos Vec3) {
+	vcmp.API.Server.SetSpawnCameraPosition(fromSafariVec3(pos))
+}
+
+func (VCMPAPI) SetSpawnCameraLookAt(pos Vec3) {
+	vcmp.API.Server.SetSpawnCameraLookAt(fromSafariVec3(pos))
+}
+
+func (VCMPAPI) PlayerClass(playerID int) int {
+	return vcmp.API.Player.Class(playerID)
+}
+
 func (VCMPAPI) AddPlayerClass(teamID int, colour uint32, model int, pos Vec3, angle float32, weapons [6]int) {
 	vcmp.API.Server.AddPlayerClass(teamID, colour, model, fromSafariVec3(pos), angle, weapons[:]...)
 }
