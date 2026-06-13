@@ -32,8 +32,16 @@ class WorldScoreboardComponent extends Component {
 		return side == "escort" ? SafariTheme.ESCORT : SafariTheme.DEFEND;
 	}
 
+	function teamPanelColour() {
+		return side == "escort" ? SafariTheme.ESCORT_PANEL : SafariTheme.DEFEND_PANEL;
+	}
+
+	function teamRowColour() {
+		return side == "escort" ? SafariTheme.ESCORT_ROW : SafariTheme.DEFEND_ROW;
+	}
+
 	function teamLabel() {
-		return side == "escort" ? "Escort team top 10" : "Defend team top 10";
+		return side == "escort" ? "YELLOW team top 10" : "PINK team top 10";
 	}
 
 	function transform3D() {
@@ -65,6 +73,7 @@ class WorldScoreboardComponent extends Component {
 
 	function buildChildren() {
 		local c = teamColour();
+		local rowC = teamRowColour();
 		local children = [
 			lineLabel(id + "::title", 20, teamLabel(), c, 13),
 			lineLabel(id + "::cols", 45, colsLabel, SafariTheme.TEXT, 11),
@@ -90,7 +99,7 @@ class WorldScoreboardComponent extends Component {
 				line += " ";
 			}
 			line += row.points + "  " + row.marks + "  " + row.wins;
-			children.append(lineLabel(id + "::row" + rank, rowY, line, c, 11));
+			children.append(lineLabel(id + "::row" + rank, rowY, line, rowC, 11));
 			rowY += 24;
 			rank++;
 		}
@@ -103,7 +112,7 @@ class WorldScoreboardComponent extends Component {
 			flags = GUI_FLAG_3D_ENTITY | GUI_FLAG_VISIBLE | GUI_FLAG_TEXT_TAGS,
 			Position = VectorScreen(75, 75),
 			Size = VectorScreen(540, 420),
-			Colour = Colour(68, 68, 68),
+			Colour = teamPanelColour(),
 			FontName = "Verdana",
 			Transform3D = transform3D(),
 			children = buildChildren(),
