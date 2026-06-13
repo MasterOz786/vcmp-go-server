@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/masteroz/vcmp-go-server/safari/apidef"
 	"github.com/masteroz/vcmp-go-server/safari/gameplay"
 )
 
@@ -146,7 +147,7 @@ func (e *Engine) HandleCommand(playerID int, raw string) CommandResult {
 func (e *Engine) sendHelp(playerID int) {
 	e.api.Send(playerID, ColourCyan, "=== Project Safari: Hydra Warfare ===")
 	lines := []string{
-		"/pack 1|2|3 - choose loadout (keys 1-3)",
+		apidef.PackCommandHelpLine(),
 		"/skin 1|2|3|4 - choose character skin (spawn screen class)",
 		"/switch [escort|defend] - switch team (admin: /switch <player> [team])",
 		"/mark [name] - Escort: designate target",

@@ -1,4 +1,4 @@
-// Weapon display lines per pack (matches server/safari/loadouts.go).
+// Weapon display lines per pack (matches safari/gameplay/loadouts.go).
 PackCatalog <- {
 	"1": {
 		"ESCORT": [
