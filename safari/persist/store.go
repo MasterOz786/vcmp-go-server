@@ -25,7 +25,9 @@ CREATE TABLE IF NOT EXISTS player_stats (
   marks INTEGER DEFAULT 0,
   rounds_played INTEGER DEFAULT 0,
   rounds_won INTEGER DEFAULT 0,
-  preferred_pack INTEGER NOT NULL DEFAULT 1
+  preferred_pack INTEGER NOT NULL DEFAULT 1,
+  preferred_team INTEGER NOT NULL DEFAULT 0,
+  preferred_skin INTEGER NOT NULL DEFAULT 0
 );
 CREATE TABLE IF NOT EXISTS match_history (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -57,6 +59,8 @@ func OpenStore(path string) (*Store, error) {
 		return nil, err
 	}
 	_, _ = db.Exec(`ALTER TABLE player_stats ADD COLUMN preferred_pack INTEGER NOT NULL DEFAULT 1`)
+	_, _ = db.Exec(`ALTER TABLE player_stats ADD COLUMN preferred_team INTEGER NOT NULL DEFAULT 0`)
+	_, _ = db.Exec(`ALTER TABLE player_stats ADD COLUMN preferred_skin INTEGER NOT NULL DEFAULT 0`)
 	_, _ = db.Exec(`ALTER TABLE players ADD COLUMN password_hash TEXT NOT NULL DEFAULT ''`)
 	_, _ = db.Exec(`ALTER TABLE players ADD COLUMN registered INTEGER NOT NULL DEFAULT 0`)
 	return &Store{db: db}, nil
@@ -190,6 +194,71 @@ func (s *Store) SetPreferredPack(uid string, pack int) error {
 		`INSERT INTO player_stats (uid, preferred_pack) VALUES (?, ?)
 		 ON CONFLICT(uid) DO UPDATE SET preferred_pack = excluded.preferred_pack`,
 		uid, pack,
+	)
+	return err
+}
+
+func clampPreferredTeam(team int) int {
+	if team == apidef.TeamEscort || team == apidef.TeamDefend {
+		return team
+	}
+	return 0
+}
+
+func clampPreferredSkin(skin int) int {
+	if skin < 0 {
+		return 0
+	}
+	if skin >= apidef.MaxSkin {
+		return apidef.MaxSkin - 1
+	}
+	return skin
+}
+
+func (s *Store) GetPreferredTeam(uid string) (int, error) {
+	var team int
+	err := s.db.QueryRow(
+		`SELECT preferred_team FROM player_stats WHERE uid = ?`, uid,
+	).Scan(&team)
+	if err == sql.ErrNoRows {
+		return 0, nil
+	}
+	if err != nil {
+		return 0, err
+	}
+	return clampPreferredTeam(team), nil
+}
+
+func (s *Store) SetPreferredTeam(uid string, team int) error {
+	team = clampPreferredTeam(team)
+	_, err := s.db.Exec(
+		`INSERT INTO player_stats (uid, preferred_team) VALUES (?, ?)
+		 ON CONFLICT(uid) DO UPDATE SET preferred_team = excluded.preferred_team`,
+		uid, team,
+	)
+	return err
+}
+
+func (s *Store) GetPreferredSkin(uid string) (int, error) {
+	var skin int
+	err := s.db.QueryRow(
+		`SELECT preferred_skin FROM player_stats WHERE uid = ?`, uid,
+	).Scan(&skin)
+	if err == sql.ErrNoRows {
+		return 0, nil
+	}
+	if err != nil {
+		return 0, err
+	}
+	return clampPreferredSkin(skin), nil
+}
+
+func (s *Store) SetPreferredSkin(uid string, skin int) error {
+	skin = clampPreferredSkin(skin)
+	_, err := s.db.Exec(
+		`INSERT INTO player_stats (uid, preferred_skin) VALUES (?, ?)
+		 ON CONFLICT(uid) DO UPDATE SET preferred_skin = excluded.preferred_skin`,
+		uid, skin,
 	)
 	return err
 }

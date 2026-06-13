@@ -17,6 +17,8 @@ type API interface {
 	PlayerUID(playerID int) string
 	PlayerTeam(playerID int) int
 	SetPlayerTeam(playerID, team int)
+	PlayerSkin(playerID int) int
+	SetPlayerSkin(playerID, skinID int) error
 	SetPlayerScore(playerID, score int)
 	GetPlayerScore(playerID int) int
 	PlayerPosition(playerID int) Vec3

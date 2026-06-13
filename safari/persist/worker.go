@@ -54,6 +54,34 @@ func (j savePackJob) Run(store *Store) error {
 	return nil
 }
 
+type saveTeamJob struct {
+	uid  string
+	team int
+	w    *DBWorker
+}
+
+func (j saveTeamJob) Run(store *Store) error {
+	if err := store.SetPreferredTeam(j.uid, j.team); err != nil {
+		return err
+	}
+	j.w.setCachedTeam(j.uid, j.team)
+	return nil
+}
+
+type saveSkinJob struct {
+	uid  string
+	skin int
+	w    *DBWorker
+}
+
+func (j saveSkinJob) Run(store *Store) error {
+	if err := store.SetPreferredSkin(j.uid, j.skin); err != nil {
+		return err
+	}
+	j.w.setCachedSkin(j.uid, j.skin)
+	return nil
+}
+
 type prefetchPackJob struct {
 	uid string
 	w   *DBWorker
@@ -65,6 +93,34 @@ func (j prefetchPackJob) Run(store *Store) error {
 		return err
 	}
 	j.w.setCachedPackIfAbsent(j.uid, pack)
+	return nil
+}
+
+type prefetchTeamJob struct {
+	uid string
+	w   *DBWorker
+}
+
+func (j prefetchTeamJob) Run(store *Store) error {
+	team, err := store.GetPreferredTeam(j.uid)
+	if err != nil {
+		return err
+	}
+	j.w.setCachedTeamIfAbsent(j.uid, team)
+	return nil
+}
+
+type prefetchSkinJob struct {
+	uid string
+	w   *DBWorker
+}
+
+func (j prefetchSkinJob) Run(store *Store) error {
+	skin, err := store.GetPreferredSkin(j.uid)
+	if err != nil {
+		return err
+	}
+	j.w.setCachedSkinIfAbsent(j.uid, skin)
 	return nil
 }
 
@@ -127,6 +183,8 @@ type DBWorker struct {
 
 	mu              sync.RWMutex
 	packCache       map[string]int
+	teamCache       map[string]int
+	skinCache       map[string]int
 	statsCache      map[string]PlayerStats
 	registeredCache map[string]bool
 	escortLB        []LeaderboardEntry
@@ -141,6 +199,8 @@ func NewDBWorker(store *Store, queueSize int) *DBWorker {
 		done:            make(chan struct{}),
 		closed:          make(chan struct{}),
 		packCache:       make(map[string]int),
+		teamCache:       make(map[string]int),
+		skinCache:       make(map[string]int),
 		statsCache:      make(map[string]PlayerStats),
 		registeredCache: make(map[string]bool),
 	}
@@ -255,6 +315,101 @@ func (w *DBWorker) InvalidateStats(uid string) {
 	w.mu.Lock()
 	delete(w.statsCache, uid)
 	w.mu.Unlock()
+}
+
+func clampTeam(team int) int {
+	if team == apidef.TeamEscort || team == apidef.TeamDefend {
+		return team
+	}
+	return 0
+}
+
+func clampSkin(skin int) int {
+	if skin < 0 {
+		return 0
+	}
+	if skin >= apidef.MaxSkin {
+		return apidef.MaxSkin - 1
+	}
+	return skin
+}
+
+func (w *DBWorker) setCachedTeamIfAbsent(uid string, team int) {
+	team = clampTeam(team)
+	w.mu.Lock()
+	if _, exists := w.teamCache[uid]; !exists {
+		w.teamCache[uid] = team
+	}
+	w.mu.Unlock()
+}
+
+func (w *DBWorker) setCachedTeam(uid string, team int) {
+	team = clampTeam(team)
+	w.mu.Lock()
+	w.teamCache[uid] = team
+	w.mu.Unlock()
+}
+
+func (w *DBWorker) CachedPreferredTeam(uid string) (int, bool) {
+	w.mu.RLock()
+	team, ok := w.teamCache[uid]
+	w.mu.RUnlock()
+	if !ok {
+		return 0, false
+	}
+	return clampTeam(team), true
+}
+
+func (w *DBWorker) PrefetchPreferredTeam(uid string) {
+	if uid == "" {
+		return
+	}
+	w.Enqueue(prefetchTeamJob{uid: uid, w: w})
+}
+
+func (w *DBWorker) SavePreferredTeam(uid string, team int) {
+	team = clampTeam(team)
+	w.setCachedTeam(uid, team)
+	w.Enqueue(saveTeamJob{uid: uid, team: team, w: w})
+}
+
+func (w *DBWorker) setCachedSkinIfAbsent(uid string, skin int) {
+	skin = clampSkin(skin)
+	w.mu.Lock()
+	if _, exists := w.skinCache[uid]; !exists {
+		w.skinCache[uid] = skin
+	}
+	w.mu.Unlock()
+}
+
+func (w *DBWorker) setCachedSkin(uid string, skin int) {
+	skin = clampSkin(skin)
+	w.mu.Lock()
+	w.skinCache[uid] = skin
+	w.mu.Unlock()
+}
+
+func (w *DBWorker) CachedPreferredSkin(uid string) (int, bool) {
+	w.mu.RLock()
+	skin, ok := w.skinCache[uid]
+	w.mu.RUnlock()
+	if !ok {
+		return 0, false
+	}
+	return clampSkin(skin), true
+}
+
+func (w *DBWorker) PrefetchPreferredSkin(uid string) {
+	if uid == "" {
+		return
+	}
+	w.Enqueue(prefetchSkinJob{uid: uid, w: w})
+}
+
+func (w *DBWorker) SavePreferredSkin(uid string, skin int) {
+	skin = clampSkin(skin)
+	w.setCachedSkin(uid, skin)
+	w.Enqueue(saveSkinJob{uid: uid, skin: skin, w: w})
 }
 
 func (w *DBWorker) SavePreferredPack(uid string, pack int) {

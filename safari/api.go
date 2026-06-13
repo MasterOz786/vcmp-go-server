@@ -43,6 +43,12 @@ func (VCMPAPI) PlayerTeam(playerID int) int { return vcmp.API.Player.Team(player
 
 func (VCMPAPI) SetPlayerTeam(playerID, team int) { vcmp.API.Player.SetTeam(playerID, team) }
 
+func (VCMPAPI) PlayerSkin(playerID int) int { return vcmp.API.Player.Skin(playerID) }
+
+func (VCMPAPI) SetPlayerSkin(playerID, skinID int) error {
+	return vcmp.API.Player.SetSkin(playerID, skinID)
+}
+
 func (VCMPAPI) SetPlayerScore(playerID, score int) { vcmp.API.Player.SetScore(playerID, score) }
 
 func (VCMPAPI) GetPlayerScore(playerID int) int { return vcmp.API.Player.Score(playerID) }

@@ -3,6 +3,7 @@ package apidef
 const (
 	MaxPlayers = 100
 	MaxPack    = 3
+	MaxSkin    = 4 // spawn-screen class slots per team (indices 0–3)
 
 	TeamEscort = 1
 	TeamDefend = 2
@@ -72,6 +73,7 @@ func (s *Scoring) WinnerByScore() int {
 type PlayerSession struct {
 	Team                int
 	Pack                int
+	SkinIndex           int // spawn-screen class index 0–3
 	SpawnIndex          int
 	HasSpawnedThisRound bool
 	HydraCameraMode     int
@@ -89,6 +91,7 @@ func NewPlayerSession(team, pack int) *PlayerSession {
 	return &PlayerSession{
 		Team:               team,
 		Pack:               pack,
+		SkinIndex:          0,
 		HydraCameraMode:    HydraCamDefault,
 		TestHydraVehicleID: -1,
 	}

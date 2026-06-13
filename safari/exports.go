@@ -11,6 +11,7 @@ type API = apidef.API
 const (
 	MaxPlayers = apidef.MaxPlayers
 	MaxPack    = apidef.MaxPack
+	MaxSkin    = apidef.MaxSkin
 
 	TeamEscort = apidef.TeamEscort
 	TeamDefend = apidef.TeamDefend

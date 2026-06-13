@@ -5,6 +5,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/masteroz/vcmp-go-server/safari/gameplay"
 )
 
 type CommandResult struct {
@@ -94,6 +96,10 @@ func (e *Engine) HandleCommand(playerID int, raw string) CommandResult {
 		return CommandResult{Handled: true, Deny: true}
 	case "/pack":
 		return e.cmdPack(playerID, args)
+	case "/skin":
+		return e.cmdSkin(playerID, args)
+	case "/switch":
+		return e.cmdSwitch(playerID, args)
 	case "/mark":
 		return e.cmdMark(playerID, args)
 	case "/status":
@@ -141,6 +147,8 @@ func (e *Engine) sendHelp(playerID int) {
 	e.api.Send(playerID, ColourCyan, "=== Project Safari: Hydra Warfare ===")
 	lines := []string{
 		"/pack 1|2|3 - choose loadout (keys 1-3)",
+		"/skin 1|2|3|4 - choose character skin (spawn screen class)",
+		"/switch [escort|defend] - switch team (admin: /switch <player> [team])",
 		"/mark [name] - Escort: designate target",
 		"/testhydra - spawn test Hydra and warp in",
 		"/testhydra stop - remove your test Hydra",
@@ -199,6 +207,109 @@ func (e *Engine) cmdPack(playerID int, args []string) CommandResult {
 		name = DefendPacks()[pack].Name
 	}
 	e.api.Send(playerID, ColourGreen, fmt.Sprintf("Loadout equipped: %s", name))
+	return CommandResult{Handled: true, Deny: true}
+}
+
+func (e *Engine) cmdSkin(playerID int, args []string) CommandResult {
+	if len(args) != 1 {
+		e.api.Send(playerID, ColourYellow, fmt.Sprintf("Usage: /skin 1-%d", MaxSkin))
+		return CommandResult{Handled: true, Deny: true}
+	}
+	n, err := strconv.Atoi(args[0])
+	if err != nil || n < 1 || n > MaxSkin {
+		e.api.Send(playerID, ColourYellow, fmt.Sprintf("Skin must be 1 to %d.", MaxSkin))
+		return CommandResult{Handled: true, Deny: true}
+	}
+	e.ensurePlayerSession(playerID)
+	if e.teams.Team(playerID) == 0 {
+		e.api.Send(playerID, ColourRed, "You are not assigned to a team yet.")
+		return CommandResult{Handled: true, Deny: true}
+	}
+	skinIndex := n - 1
+	e.ApplySkin(playerID, skinIndex)
+	team := e.teams.Team(playerID)
+	model := gameplay.SkinModel(team, skinIndex)
+	e.api.Send(playerID, ColourGreen, fmt.Sprintf("Skin %d equipped (model %d). Respawn to apply on spawn screen.", n, model))
+	return CommandResult{Handled: true, Deny: true}
+}
+
+func parseTeamArg(s string) (int, bool) {
+	switch strings.ToLower(strings.TrimSpace(s)) {
+	case "escort", "e", "1":
+		return TeamEscort, true
+	case "defend", "defender", "defenders", "d", "2":
+		return TeamDefend, true
+	default:
+		return 0, false
+	}
+}
+
+func (e *Engine) cmdSwitch(playerID int, args []string) CommandResult {
+	force := e.isAdmin(playerID)
+	targetID := playerID
+	var newTeam int
+	var teamOK bool
+
+	switch len(args) {
+	case 0:
+		cur := e.teams.Team(playerID)
+		if cur == TeamEscort {
+			newTeam = TeamDefend
+		} else {
+			newTeam = TeamEscort
+		}
+		teamOK = true
+	case 1:
+		if team, ok := parseTeamArg(args[0]); ok {
+			newTeam = team
+			teamOK = true
+		} else if force {
+			id := e.api.PlayerIDFromName(args[0])
+			if id < 0 || !e.api.IsConnected(id) {
+				e.api.Send(playerID, ColourRed, args[0]+" was not found.")
+				return CommandResult{Handled: true, Deny: true}
+			}
+			targetID = id
+			cur := e.teams.Team(targetID)
+			if cur == TeamEscort {
+				newTeam = TeamDefend
+			} else {
+				newTeam = TeamEscort
+			}
+			teamOK = true
+		} else {
+			e.api.Send(playerID, ColourYellow, "Usage: /switch [escort|defend] (admin: /switch <player> [team])")
+			return CommandResult{Handled: true, Deny: true}
+		}
+	default:
+		if !force {
+			e.api.Send(playerID, ColourRed, "Admin only when specifying a player.")
+			return CommandResult{Handled: true, Deny: true}
+		}
+		id := e.api.PlayerIDFromName(args[0])
+		if id < 0 || !e.api.IsConnected(id) {
+			e.api.Send(playerID, ColourRed, args[0]+" was not found.")
+			return CommandResult{Handled: true, Deny: true}
+		}
+		targetID = id
+		newTeam, teamOK = parseTeamArg(args[1])
+		if !teamOK {
+			e.api.Send(playerID, ColourYellow, "Team must be escort or defend.")
+			return CommandResult{Handled: true, Deny: true}
+		}
+	}
+
+	okSwitch, msg := e.SwitchTeam(targetID, newTeam, force)
+	if !okSwitch {
+		e.api.Send(playerID, ColourYellow, msg)
+		return CommandResult{Handled: true, Deny: true}
+	}
+	if targetID != playerID {
+		e.api.Broadcast(ColourCyan, e.api.PlayerName(targetID)+" has been switched to "+e.teams.RoleName(newTeam)+".")
+		e.api.Send(playerID, ColourGreen, msg)
+	} else {
+		e.api.Send(playerID, ColourGreen, msg)
+	}
 	return CommandResult{Handled: true, Deny: true}
 }
 

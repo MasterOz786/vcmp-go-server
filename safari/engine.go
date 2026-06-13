@@ -102,6 +102,7 @@ func (e *Engine) onTick() {
 	e.tickCount++
 	e.retryPendingLoadouts()
 	e.syncPrefetchedPacks()
+	e.syncPrefetchedTeamAndSkin()
 
 	if e.round.MaybeReset() {
 		e.announce(MsgRoundReset)
@@ -167,6 +168,26 @@ func (e *Engine) syncPrefetchedPacks() {
 		}
 		if e.api.IsSpawned(playerID) {
 			e.applyPlayerLoadout(playerID)
+		}
+	}
+}
+
+func (e *Engine) syncPrefetchedTeamAndSkin() {
+	for _, playerID := range e.teams.ConnectedIDs() {
+		if !e.api.IsConnected(playerID) {
+			continue
+		}
+		uid := e.api.PlayerUID(playerID)
+		if uid == "" {
+			continue
+		}
+		if skin, ok := e.db.CachedPreferredSkin(uid); ok {
+			if e.teams.SkinIndex(playerID) != skin {
+				e.teams.SetSkinIndex(playerID, skin)
+				if e.api.IsSpawned(playerID) {
+					e.teams.ApplySkin(e.api, playerID)
+				}
+			}
 		}
 	}
 }
@@ -304,13 +325,40 @@ func (e *Engine) initialPack(uid string) int {
 	return 1
 }
 
+func (e *Engine) initialTeam(uid string) int {
+	if uid == "" {
+		return 0
+	}
+	if team, ok := e.db.CachedPreferredTeam(uid); ok {
+		return team
+	}
+	e.db.PrefetchPreferredTeam(uid)
+	return 0
+}
+
+func (e *Engine) initialSkin(uid string) int {
+	if uid == "" {
+		return 0
+	}
+	if skin, ok := e.db.CachedPreferredSkin(uid); ok {
+		if skin < 0 || skin >= MaxSkin {
+			return 0
+		}
+		return skin
+	}
+	e.db.PrefetchPreferredSkin(uid)
+	return 0
+}
+
 func (e *Engine) ensurePlayerSession(playerID int) int {
 	if e.teams.Team(playerID) != 0 {
 		return e.teams.Team(playerID)
 	}
 	uid := e.api.PlayerUID(playerID)
 	pack := e.initialPack(uid)
-	return e.teams.Assign(e.api, playerID, pack)
+	team := e.teams.Assign(e.api, playerID, pack, e.initialTeam(uid))
+	e.teams.SetSkinIndex(playerID, e.initialSkin(uid))
+	return team
 }
 
 func (e *Engine) scheduleLoadoutRetry(playerID int) {
@@ -380,6 +428,8 @@ func (e *Engine) OnConnect(playerID int) {
 	if uid != "" {
 		e.db.EnqueueUpsertPlayer(uid, name)
 		e.db.PrefetchPreferredPack(uid)
+		e.db.PrefetchPreferredTeam(uid)
+		e.db.PrefetchPreferredSkin(uid)
 		e.db.PrefetchStats(uid)
 		e.db.PrefetchRegistered(uid)
 	}
@@ -429,6 +479,7 @@ func (e *Engine) OnSpawn(playerID int) {
 	}
 	if !e.teams.HasSpawnedThisRound(playerID) {
 		e.applyPlayerLoadout(playerID)
+		e.teams.ApplySkin(e.api, playerID)
 		e.scheduleLoadoutRetry(playerID)
 		e.teams.MarkSpawned(playerID)
 	}
@@ -538,7 +589,71 @@ func (e *Engine) HandleRequestSpawn(playerID int) bool {
 }
 
 func (e *Engine) HandleRequestClass(playerID, classIndex int) bool {
-	return e.teams.AllowClassRequest(playerID, classIndex, e.round.State == RoundActive)
+	if !e.teams.AllowClassRequest(playerID, classIndex, e.round.State == RoundActive) {
+		return false
+	}
+	e.ensurePlayerSession(playerID)
+	if e.teams.SetSkinIndex(playerID, classIndex) {
+		if uid := e.api.PlayerUID(playerID); uid != "" {
+			e.db.SavePreferredSkin(uid, classIndex)
+		}
+	}
+	return true
+}
+
+func (e *Engine) SwitchTeam(playerID, newTeam int, force bool) (bool, string) {
+	e.ensurePlayerSession(playerID)
+	cur := e.teams.Team(playerID)
+	if cur == 0 {
+		return false, "You are not assigned to a team yet."
+	}
+	if cur == newTeam {
+		return false, "You are already on " + e.teams.RoleName(newTeam) + "."
+	}
+	if e.round.State == RoundActive && e.teams.HasSpawnedThisRound(playerID) && !force {
+		return false, "Cannot switch team after spawning this round."
+	}
+	if !force && e.round.State == RoundActive && !e.teams.CanSwitchTo(playerID, newTeam) {
+		return false, "Team balance does not allow switching to " + e.teams.RoleName(newTeam) + " right now."
+	}
+	var ok bool
+	if force {
+		ok = e.teams.ForceSwitchTeam(e.api, playerID, newTeam)
+	} else {
+		if !e.teams.CanSwitchTo(playerID, newTeam) {
+			return false, "Team balance does not allow switching to " + e.teams.RoleName(newTeam) + " right now."
+		}
+		ok = e.teams.SwitchTeam(e.api, playerID, newTeam)
+	}
+	if !ok {
+		return false, "Could not switch team."
+	}
+	if uid := e.api.PlayerUID(playerID); uid != "" {
+		e.db.SavePreferredTeam(uid, newTeam)
+	}
+	if e.api.IsSpawned(playerID) {
+		e.applyPlayerLoadout(playerID)
+		e.teams.ApplySkin(e.api, playerID)
+	}
+	score := e.round.Score.EscortScore
+	if newTeam == TeamDefend {
+		score = e.round.Score.DefendScore
+	}
+	e.api.SetPlayerScore(playerID, score)
+	return true, "Switched to " + e.teams.RoleName(newTeam) + "."
+}
+
+func (e *Engine) ApplySkin(playerID, skinIndex int) {
+	e.ensurePlayerSession(playerID)
+	if !e.teams.SetSkinIndex(playerID, skinIndex) {
+		return
+	}
+	if uid := e.api.PlayerUID(playerID); uid != "" {
+		e.db.SavePreferredSkin(uid, skinIndex)
+	}
+	if e.api.IsSpawned(playerID) {
+		e.teams.ApplySkin(e.api, playerID)
+	}
 }
 
 func (e *Engine) TogglePause() bool {
